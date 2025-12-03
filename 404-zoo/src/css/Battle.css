@@ -1,0 +1,135 @@
+.battle-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.battle-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.battle-mode-card {
+  background: var(--bg-darker);
+  border-radius: 16px;
+  border: 2px solid var(--border-color);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.battle-mode-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+}
+
+.mode-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.mode-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mode-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.mode-reward {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.reward-value {
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
+.mode-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--gradient-purple);
+  border-radius: 10px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.mode-btn:hover {
+  box-shadow: 0 8px 24px rgba(107, 92, 231, 0.4);
+}
+
+.mode-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.mode-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+
+.battle-stats {
+  background: var(--bg-darker);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.battle-stats h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.battle-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.battle-stats .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.battle-stats .stat-value.win {
+  color: #22c55e;
+}
+
+.battle-stats .stat-value.lose {
+  color: #ef4444;
+}
+
+.battle-stats .stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

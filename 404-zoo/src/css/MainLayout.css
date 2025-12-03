@@ -1,0 +1,241 @@
+.main-layout {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: 
+    radial-gradient(circle at 30% 70%, rgba(107, 92, 231, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 70% 30%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+    var(--bg-dark);
+}
+
+.main-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px 24px;
+}
+
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.home-title {
+  font-size: 48px;
+  font-weight: 800;
+  background: var(--gradient-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.home-subtitle {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.card-slots {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 900px;
+}
+
+.card-slot {
+  width: 80px;
+  height: 110px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 2px dashed var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card-slot:hover {
+  border-color: var(--primary-color);
+  background: rgba(107, 92, 231, 0.1);
+  transform: translateY(-4px);
+}
+
+.slot-number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  background: var(--gradient-purple);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.slot-placeholder {
+  font-size: 28px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.card-slot.filled {
+  border: 2px solid var(--primary-color);
+  background: rgba(107, 92, 231, 0.15);
+}
+
+.slot-card-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-card-display .card-emoji {
+  font-size: 32px;
+}
+
+/* 组队页面样式 */
+.team-hint {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.team-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.team-slots {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.team-slot {
+  width: 80px;
+  height: 110px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 2px dashed var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.team-slot:hover {
+  border-color: var(--primary-color);
+}
+
+.slot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.slot-card .card-emoji {
+  font-size: 28px;
+}
+
+.slot-card .card-name {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.slot-empty {
+  font-size: 24px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.available-cards h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.cards-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.available-card {
+  width: 60px;
+  height: 80px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.available-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.page-container {
+  width: 100%;
+  max-width: 1200px;
+  height: calc(100% - 40px);
+  background: rgba(37, 37, 66, 0.6);
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-header .icon {
+  font-size: 28px;
+}
+
+.page-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.back-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
