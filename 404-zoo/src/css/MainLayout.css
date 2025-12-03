@@ -239,3 +239,88 @@
   background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
 }
+
+/* 注册界面样式 */
+.register-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 48px;
+  background: rgba(37, 37, 66, 0.8);
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(20px);
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.username-input {
+  padding: 14px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 16px;
+  text-align: center;
+}
+
+.username-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.username-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.register-btn {
+  padding: 14px 32px;
+  background: var(--gradient-purple);
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(107, 92, 231, 0.4);
+}
+
+.register-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(107, 92, 231, 0.6);
+}
+
+.register-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disconnect-btn {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.disconnect-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.wallet-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.loading-text {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
