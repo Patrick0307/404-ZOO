@@ -324,3 +324,35 @@
   color: var(--text-secondary);
   font-size: 16px;
 }
+
+/* 加载页面样式 */
+.loading-screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: 
+    radial-gradient(circle at 30% 70%, rgba(107, 92, 231, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 70% 30%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+    var(--bg-dark);
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-content h1 {
+  font-size: 48px;
+  font-weight: 800;
+  background: var(--gradient-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 16px;
+}
+
+.loading-content p {
+  color: var(--text-secondary);
+  font-size: 16px;
+}

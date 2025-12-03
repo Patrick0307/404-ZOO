@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import UserProfile from './UserProfile'
 import DrawerMenu from './DrawerMenu'
 import Backpack from './Backpack'
@@ -17,6 +18,7 @@ interface MainLayoutProps {
   isLoading: boolean
   onRegister: (username: string) => void
   playerProfile: PlayerProfileType | null
+  currentRoute: string
 }
 
 type PageType = 'home' | 'backpack' | 'gacha' | 'marketplace' | 'pokedex' | 'battle' | 'leaderboard' | 'team'
@@ -29,37 +31,38 @@ const selectedTeam = [
   null, null, null, null, null, null, null
 ]
 
-function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile }: MainLayoutProps) {
-  const [currentPage, setCurrentPage] = useState<PageType>('home')
+function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, currentRoute }: MainLayoutProps) {
+  const navigate = useNavigate()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [username, setUsername] = useState('')
 
+  const currentPage = currentRoute as PageType
+
   const handleNavigate = (page: PageType) => {
-    setCurrentPage(page)
-    setIsDrawerOpen(false)
+    navigate(`/${page === 'home' ? 'home' : page}`)
   }
 
   const renderPage = () => {
     switch (currentPage) {
       case 'backpack':
-        return <Backpack onBack={() => setCurrentPage('home')} />
+        return <Backpack onBack={() => navigate('/home')} />
       case 'gacha':
-        return <GachaPage onBack={() => setCurrentPage('home')} />
+        return <GachaPage onBack={() => navigate('/home')} />
       case 'marketplace':
-        return <Marketplace onBack={() => setCurrentPage('home')} />
+        return <Marketplace onBack={() => navigate('/home')} />
       case 'pokedex':
-        return <Pokedex onBack={() => setCurrentPage('home')} />
+        return <Pokedex onBack={() => navigate('/home')} />
       case 'battle':
-        return <Battle onBack={() => setCurrentPage('home')} />
+        return <Battle onBack={() => navigate('/home')} />
       case 'leaderboard':
-        return <Leaderboard onBack={() => setCurrentPage('home')} />
+        return <Leaderboard onBack={() => navigate('/home')} />
       case 'team':
         return (
           <div className="page-container">
             <div className="page-header">
               <span className="icon">👥</span>
               <h2>组队</h2>
-              <button className="back-btn" onClick={() => setCurrentPage('home')}>返回</button>
+              <button className="back-btn" onClick={() => navigate('/home')}>返回</button>
             </div>
             <p className="team-hint">从背包中选择卡片加入阵容</p>
             <div className="team-builder">
