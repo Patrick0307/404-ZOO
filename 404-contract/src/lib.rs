@@ -4,7 +4,7 @@ use anchor_spl::associated_token::AssociatedToken;
 use mpl_token_metadata::instructions::{CreateV1, CreateV1InstructionArgs};
 use mpl_token_metadata::types::{TokenStandard, PrintSupply};
 
-declare_id!("56HmJ62YKUiUSVgXZW5q2utssHWEGsQcA3XTk7nYwyFZ"); 
+declare_id!("At8EveJA8pq81nar1jjxBW2xshNex7kbefzVzJ4BaU9o"); 
 
 #[program]
 pub mod zoo_contract {
@@ -56,8 +56,10 @@ pub mod zoo_contract {
         name: String,
         trait_type: TraitType,
         rarity: Rarity,
-        base_attack: u16,
-        base_health: u16,
+        min_attack: u16,
+        max_attack: u16,
+        min_health: u16,
+        max_health: u16,
         description: String,
         image_uri: String,
     ) -> Result<()> {
@@ -69,6 +71,10 @@ pub mod zoo_contract {
             is_authorized_creator(game_config, &creator.key()),
             GameError::Unauthorized
         );
+        
+        // Validate stat ranges
+        require!(min_attack <= max_attack, GameError::InvalidStatRange);
+        require!(min_health <= max_health, GameError::InvalidStatRange);
         
         // Validate non-empty strings
         validate_non_empty_string(&name)?;
@@ -84,15 +90,17 @@ pub mod zoo_contract {
         card_template.name = name.clone();
         card_template.trait_type = trait_type;
         card_template.rarity = rarity;
-        card_template.base_attack = base_attack;
-        card_template.base_health = base_health;
+        card_template.min_attack = min_attack;
+        card_template.max_attack = max_attack;
+        card_template.min_health = min_health;
+        card_template.max_health = max_health;
         card_template.description = description.clone();
         card_template.image_uri = image_uri.clone();
         card_template.bump = ctx.bumps.card_template;
         
         msg!("Created card template: {} (ID: {})", name, card_type_id);
         msg!("Trait: {:?}, Rarity: {:?}", trait_type, rarity);
-        msg!("Stats: ATK {}, HP {}", base_attack, base_health);
+        msg!("Stats: ATK {}-{}, HP {}-{}", min_attack, max_attack, min_health, max_health);
         
         Ok(())
     }
@@ -184,10 +192,23 @@ pub mod zoo_contract {
             // Select random card from pool
             let card_type_id = select_random_card(rarity_pool, random_value)?;
             
-            msg!("Card {}: ID {} ({:?})", i + 1, card_type_id, rarity);
+            // Generate another random value for stats rolling
+            let stats_random = generate_random_u64(&clock, &player.key(), i as u64 + 1000);
+            
+            // Note: In production, you would fetch the card template here and roll stats
+            // For now, we log placeholder stats (actual implementation needs remaining accounts)
+            // let (actual_attack, actual_health) = roll_card_stats(
+            //     card_template.min_attack,
+            //     card_template.max_attack,
+            //     card_template.min_health,
+            //     card_template.max_health,
+            //     stats_random,
+            // );
+            
+            msg!("Card {}: ID {} ({:?}), stats_seed: {}", i + 1, card_type_id, rarity, stats_random);
             
             // Note: In production, this would mint actual NFTs using Metaplex
-            // For now, we just log the cards that would be minted
+            // with the rolled attack and health values stored in metadata
         }
         
         // Mark starter pack as claimed
@@ -249,10 +270,23 @@ pub mod zoo_contract {
             // Select random card from pool
             let card_type_id = select_random_card(rarity_pool, random_value)?;
             
-            msg!("Card {}: ID {} ({:?})", i + 1, card_type_id, rarity);
+            // Generate another random value for stats rolling
+            let stats_random = generate_random_u64(&clock, &player.key(), i as u64 + 1000);
+            
+            // Note: In production, you would fetch the card template here and roll stats
+            // For now, we log placeholder stats (actual implementation needs remaining accounts)
+            // let (actual_attack, actual_health) = roll_card_stats(
+            //     card_template.min_attack,
+            //     card_template.max_attack,
+            //     card_template.min_health,
+            //     card_template.max_health,
+            //     stats_random,
+            // );
+            
+            msg!("Card {}: ID {} ({:?}), stats_seed: {}", i + 1, card_type_id, rarity, stats_random);
             
             // Note: In production, this would mint actual NFTs using Metaplex
-            // For now, we just log the cards that would be minted
+            // with the rolled attack and health values stored in metadata
         }
         
         msg!("Pack opened successfully!");
@@ -338,8 +372,10 @@ pub struct CardTemplate {
     pub name: String,                   // Max 32 chars
     pub trait_type: TraitType,
     pub rarity: Rarity,
-    pub base_attack: u16,
-    pub base_health: u16,
+    pub min_attack: u16,                // Minimum attack value
+    pub max_attack: u16,                // Maximum attack value
+    pub min_health: u16,                // Minimum health value
+    pub max_health: u16,                // Maximum health value
     pub description: String,            // Max 200 chars
     pub image_uri: String,              // Max 200 chars (IPFS URI)
     pub bump: u8,
@@ -352,8 +388,9 @@ impl CardTemplate {
     
     // Calculate space needed for account
     // 8 (discriminator) + 4 (card_type_id) + 4 + 32 (name) + 1 (trait_type) + 1 (rarity)
-    // + 2 (base_attack) + 2 (base_health) + 4 + 200 (description) + 4 + 200 (image_uri) + 1 (bump)
-    pub const LEN: usize = 8 + 4 + 4 + 32 + 1 + 1 + 2 + 2 + 4 + 200 + 4 + 200 + 1;
+    // + 2 (min_attack) + 2 (max_attack) + 2 (min_health) + 2 (max_health) 
+    // + 4 + 200 (description) + 4 + 200 (image_uri) + 1 (bump)
+    pub const LEN: usize = 8 + 4 + 4 + 32 + 1 + 1 + 2 + 2 + 2 + 2 + 4 + 200 + 4 + 200 + 1;
 }
 
 #[account]
@@ -465,6 +502,9 @@ pub enum GameError {
     
     #[msg("String exceeds maximum length")]
     StringTooLong,
+    
+    #[msg("Invalid stat range: min cannot be greater than max")]
+    InvalidStatRange,
 }
 
 // ============================================================================
@@ -765,27 +805,56 @@ pub fn is_authorized_creator(game_config: &GameConfig, signer: &Pubkey) -> bool 
     signer == &game_config.authority || game_config.card_creators.contains(signer)
 }
 
-/// Mint an NFT card to a player
+/// Roll random stats within the template's min/max range
+/// Returns (actual_attack, actual_health)
+pub fn roll_card_stats(
+    min_attack: u16,
+    max_attack: u16,
+    min_health: u16,
+    max_health: u16,
+    random_value: u64,
+) -> (u16, u16) {
+    // Use different parts of the random value for attack and health
+    let attack_range = max_attack.saturating_sub(min_attack) as u64 + 1;
+    let health_range = max_health.saturating_sub(min_health) as u64 + 1;
+    
+    let actual_attack = min_attack + ((random_value % attack_range) as u16);
+    let actual_health = min_health + (((random_value >> 32) % health_range) as u16);
+    
+    (actual_attack, actual_health)
+}
+
+/// Mint an NFT card to a player with randomized stats
 /// This is a simplified version - in production, you'd use Metaplex's full CPI
 pub fn mint_nft_card(
     card_type_id: u32,
     card_template: &CardTemplate,
     player: &Pubkey,
-    mint: &Pubkey,
+    _mint: &Pubkey,
+    actual_attack: u16,
+    actual_health: u16,
 ) -> Result<()> {
     // Note: This is a placeholder for the actual Metaplex NFT minting logic
     // In a full implementation, this would:
     // 1. Create a new mint account
     // 2. Create associated token account for player
     // 3. Mint 1 token to player
-    // 4. Create metadata account with card_type_id in attributes
+    // 4. Create metadata account with:
+    //    - card_type_id in attributes
+    //    - actual_attack (rolled value)
+    //    - actual_health (rolled value)
     // 5. Freeze mint authority
     
     msg!("Minting NFT card {} to player {}", card_type_id, player);
     msg!("Card: {} ({:?})", card_template.name, card_template.rarity);
+    msg!("Rolled stats: ATK {}, HP {}", actual_attack, actual_health);
     
     // The actual implementation would use Metaplex Token Metadata program
     // via CPI (Cross-Program Invocation)
+    // The metadata attributes would include:
+    // - card_type_id: u32
+    // - attack: actual_attack (u16)
+    // - health: actual_health (u16)
     
     Ok(())
 }

@@ -17,7 +17,7 @@ interface PhantomWallet {
 }
 
 // Contract Program ID
-export const PROGRAM_ID = new PublicKey('56HmJ62YKUiUSVgXZW5q2utssHWEGsQcA3XTk7nYwyFZ')
+export const PROGRAM_ID = new PublicKey('At8EveJA8pq81nar1jjxBW2xshNex7kbefzVzJ4BaU9o')
 
 // Devnet connection
 export const connection = new Connection(clusterApiUrl('devnet'), 'confirmed')
