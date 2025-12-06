@@ -8,6 +8,7 @@ import {
   registerPlayer,
   type PlayerProfile,
 } from './services/contract'
+import { loadAndCacheCards } from './services/cardCache'
 
 // Phantom 类型
 interface PhantomProvider {
@@ -35,7 +36,7 @@ function AppContent() {
 
   const isRegistered = playerProfile !== null
 
-  // 启动时尝试自动重连
+  // 启动时尝试自动重连 + 预加载卡片数据
   useEffect(() => {
     async function tryAutoConnect() {
       const phantom = getPhantomProvider()
@@ -70,6 +71,9 @@ function AppContent() {
       }
       setIsLoading(false)
     }
+
+    // 启动时立即开始预加载卡片数据和图片
+    loadAndCacheCards().catch(console.error)
 
     tryAutoConnect()
   // eslint-disable-next-line react-hooks/exhaustive-deps
