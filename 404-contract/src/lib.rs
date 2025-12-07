@@ -4,7 +4,7 @@ use anchor_spl::associated_token::AssociatedToken;
 use mpl_token_metadata::instructions::{CreateV1, CreateV1InstructionArgs};
 use mpl_token_metadata::types::{TokenStandard, PrintSupply};
 
-declare_id!("At8EveJA8pq81nar1jjxBW2xshNex7kbefzVzJ4BaU9o"); 
+declare_id!("6yDrfZC6YeWTMrNCPirexQoGHXT5a9gcR7qy5XNLe3Wx "); 
 
 #[program]
 pub mod zoo_contract {
@@ -116,8 +116,7 @@ pub mod zoo_contract {
         let rarity = match rarity_discriminant {
             0 => Rarity::Common,
             1 => Rarity::Rare,
-            2 => Rarity::Epic,
-            3 => Rarity::Legendary,
+            2 => Rarity::Legendary,
             _ => return Err(GameError::InvalidRarity.into()),
         };
         
@@ -152,6 +151,7 @@ pub mod zoo_contract {
         player_profile.wallet = ctx.accounts.player.key();
         player_profile.username = username.clone();
         player_profile.has_claimed_starter_pack = false;
+        player_profile.gacha_tickets = 0;
         player_profile.trophies = 0;
         player_profile.total_wins = 0;
         player_profile.total_losses = 0;
@@ -163,61 +163,132 @@ pub mod zoo_contract {
         Ok(())
     }
     
-    pub fn claim_starter_pack(ctx: Context<ClaimStarterPack>) -> Result<()> {
+    /// Claim free starter tickets (10 gacha tickets for new players)
+    pub fn claim_starter_tickets(ctx: Context<ClaimStarterTickets>) -> Result<()> {
         let player_profile = &mut ctx.accounts.player_profile;
-        let player = &ctx.accounts.player;
-        let clock = Clock::get()?;
         
         // Verify player hasn't claimed yet (also checked in constraint)
         require!(!player_profile.has_claimed_starter_pack, GameError::StarterPackAlreadyClaimed);
         
-        msg!("Claiming starter pack for player: {}", player.key());
-        
-        // Mint 10 random cards
-        for i in 0..10 {
-            // Generate random value for this card
-            let random_value = generate_random_u64(&clock, &player.key(), i as u64);
-            
-            // Roll for rarity
-            let rarity = roll_rarity(random_value);
-            
-            // Get the appropriate rarity pool
-            let rarity_pool = match rarity {
-                Rarity::Common => &ctx.accounts.rarity_pool_common,
-                Rarity::Rare => &ctx.accounts.rarity_pool_rare,
-                Rarity::Epic => &ctx.accounts.rarity_pool_epic,
-                Rarity::Legendary => &ctx.accounts.rarity_pool_legendary,
-            };
-            
-            // Select random card from pool
-            let card_type_id = select_random_card(rarity_pool, random_value)?;
-            
-            // Generate another random value for stats rolling
-            let stats_random = generate_random_u64(&clock, &player.key(), i as u64 + 1000);
-            
-            // Note: In production, you would fetch the card template here and roll stats
-            // For now, we log placeholder stats (actual implementation needs remaining accounts)
-            // let (actual_attack, actual_health) = roll_card_stats(
-            //     card_template.min_attack,
-            //     card_template.max_attack,
-            //     card_template.min_health,
-            //     card_template.max_health,
-            //     stats_random,
-            // );
-            
-            msg!("Card {}: ID {} ({:?}), stats_seed: {}", i + 1, card_type_id, rarity, stats_random);
-            
-            // Note: In production, this would mint actual NFTs using Metaplex
-            // with the rolled attack and health values stored in metadata
-        }
-        
-        // Mark starter pack as claimed
+        // Give player 10 free gacha tickets
+        player_profile.gacha_tickets = PlayerProfile::FREE_STARTER_TICKETS;
         player_profile.has_claimed_starter_pack = true;
         
-        msg!("Starter pack claimed successfully!");
-        msg!("Total cards minted: 10");
+        msg!("Claimed {} free gacha tickets for player: {}", 
+            PlayerProfile::FREE_STARTER_TICKETS, 
+            player_profile.wallet);
         
         Ok(())
+    }
+    
+    /// Use gacha tickets to draw a single card (1 ticket = 1 draw)
+    /// For multiple draws, call this instruction multiple times with different mints
+    pub fn gacha_draw(ctx: Context<GachaDraw>) -> Result<()> {
+        let player_profile = &mut ctx.accounts.player_profile;
+        let player = &ctx.accounts.player;
+        let card_template = &ctx.accounts.card_template;
+        let clock = Clock::get()?;
+        
+        // Check player has enough tickets
+        require!(
+            player_profile.gacha_tickets >= 1,
+            GameError::InsufficientTickets
+        );
+        
+        msg!("Player {} drawing 1 card", player.key());
+        
+        // Deduct 1 ticket
+        player_profile.gacha_tickets = player_profile.gacha_tickets
+            .checked_sub(1)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Generate random value
+        let random_value = generate_random_u64(&clock, &player.key(), clock.slot);
+        
+        // Roll stats based on card template
+        let (actual_attack, actual_health) = roll_card_stats(
+            card_template.min_attack,
+            card_template.max_attack,
+            card_template.min_health,
+            card_template.max_health,
+            random_value,
+        );
+        
+        // Mint 1 token to player's token account
+        // The mint should already be initialized by the client before calling this
+        let seeds = &[b"game_config".as_ref(), &[ctx.accounts.game_config.bump]];
+        let signer_seeds = &[&seeds[..]];
+        
+        let mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            MintTo {
+                mint: ctx.accounts.card_mint.to_account_info(),
+                to: ctx.accounts.player_card_token_account.to_account_info(),
+                authority: ctx.accounts.game_config.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::mint_to(mint_ctx, 1)?;
+        
+        // Store card instance data
+        let card_instance = &mut ctx.accounts.card_instance;
+        card_instance.mint = ctx.accounts.card_mint.key();
+        card_instance.card_type_id = card_template.card_type_id;
+        card_instance.attack = actual_attack;
+        card_instance.health = actual_health;
+        card_instance.owner = player.key();
+        card_instance.bump = ctx.bumps.card_instance;
+        
+        msg!("Minted card: type_id={}, ATK={}, HP={}", 
+            card_template.card_type_id, actual_attack, actual_health);
+        msg!("Mint address: {}", ctx.accounts.card_mint.key());
+        msg!("Tickets remaining: {}", player_profile.gacha_tickets);
+        
+        Ok(())
+    }
+    
+    /// Add gacha tickets to a player (admin function)
+    pub fn add_gacha_tickets(
+        ctx: Context<AddGachaTickets>,
+        amount: u64,
+    ) -> Result<()> {
+        let player_profile = &mut ctx.accounts.player_profile;
+        
+        player_profile.gacha_tickets = player_profile.gacha_tickets
+            .checked_add(amount)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        msg!("Added {} tickets to player {}. Total: {}", 
+            amount, player_profile.wallet, player_profile.gacha_tickets);
+        
+        Ok(())
+    }
+    
+    /// Roll for a random card (view function to help client pick card_type_id)
+    /// Client calls this first, then calls gacha_draw with the selected card template
+    pub fn roll_gacha(ctx: Context<RollGacha>) -> Result<u32> {
+        let player = &ctx.accounts.player;
+        let clock = Clock::get()?;
+        
+        // Generate random value
+        let random_value = generate_random_u64(&clock, &player.key(), clock.slot);
+        
+        // Roll for rarity
+        let rarity = roll_rarity(random_value);
+        
+        // Get the appropriate rarity pool
+        let rarity_pool = match rarity {
+            Rarity::Common => &ctx.accounts.rarity_pool_common,
+            Rarity::Rare => &ctx.accounts.rarity_pool_rare,
+            Rarity::Legendary => &ctx.accounts.rarity_pool_legendary,
+        };
+        
+        // Select random card from pool
+        let card_type_id = select_random_card(rarity_pool, random_value)?;
+        
+        msg!("Rolled: {:?} - Card ID {}", rarity, card_type_id);
+        
+        Ok(card_type_id)
     }
     
     pub fn purchase_pack(
@@ -263,7 +334,6 @@ pub mod zoo_contract {
             let rarity_pool = match rarity {
                 Rarity::Common => &ctx.accounts.rarity_pool_common,
                 Rarity::Rare => &ctx.accounts.rarity_pool_rare,
-                Rarity::Epic => &ctx.accounts.rarity_pool_epic,
                 Rarity::Legendary => &ctx.accounts.rarity_pool_legendary,
             };
             
@@ -398,6 +468,7 @@ pub struct PlayerProfile {
     pub wallet: Pubkey,
     pub username: String,               // Max 32 chars
     pub has_claimed_starter_pack: bool,
+    pub gacha_tickets: u64,             // Number of gacha tickets owned
     pub trophies: u32,                  // Minimum is 0, starts at 0
     pub total_wins: u32,
     pub total_losses: u32,
@@ -406,11 +477,12 @@ pub struct PlayerProfile {
 
 impl PlayerProfile {
     pub const MAX_USERNAME_LEN: usize = 32;
+    pub const FREE_STARTER_TICKETS: u64 = 10;  // Free tickets for new players
     
     // Calculate space needed for account
     // 8 (discriminator) + 32 (wallet) + 4 + 32 (username) + 1 (has_claimed_starter_pack)
-    // + 4 (trophies) + 4 (total_wins) + 4 (total_losses) + 1 (bump)
-    pub const LEN: usize = 8 + 32 + 4 + 32 + 1 + 4 + 4 + 4 + 1;
+    // + 8 (gacha_tickets) + 4 (trophies) + 4 (total_wins) + 4 (total_losses) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 4 + 32 + 1 + 8 + 4 + 4 + 4 + 1;
 }
 
 #[account]
@@ -428,6 +500,22 @@ impl RarityPool {
     pub const LEN: usize = 8 + 1 + 4 + (4 * 100) + 1;
 }
 
+/// Individual card instance with rolled stats
+#[account]
+pub struct CardInstance {
+    pub mint: Pubkey,           // The NFT mint address
+    pub card_type_id: u32,      // Reference to CardTemplate
+    pub attack: u16,            // Rolled attack value
+    pub health: u16,            // Rolled health value
+    pub owner: Pubkey,          // Current owner
+    pub bump: u8,
+}
+
+impl CardInstance {
+    // 8 (discriminator) + 32 (mint) + 4 (card_type_id) + 2 (attack) + 2 (health) + 32 (owner) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 4 + 2 + 2 + 32 + 1;
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -443,7 +531,6 @@ pub enum TraitType {
 pub enum Rarity {
     Common,
     Rare,
-    Epic,
     Legendary,
 }
 
@@ -452,8 +539,7 @@ impl Rarity {
         match self {
             Rarity::Common => 0,
             Rarity::Rare => 1,
-            Rarity::Epic => 2,
-            Rarity::Legendary => 3,
+            Rarity::Legendary => 2,
         }
     }
 }
@@ -505,6 +591,12 @@ pub enum GameError {
     
     #[msg("Invalid stat range: min cannot be greater than max")]
     InvalidStatRange,
+    
+    #[msg("Insufficient gacha tickets")]
+    InsufficientTickets,
+    
+    #[msg("Invalid draw count (must be 1-10)")]
+    InvalidDrawCount,
 }
 
 // ============================================================================
@@ -608,7 +700,7 @@ pub struct RegisterPlayer<'info> {
 }
 
 #[derive(Accounts)]
-pub struct ClaimStarterPack<'info> {
+pub struct ClaimStarterTickets<'info> {
     #[account(
         mut,
         seeds = [b"player_profile", player.key().as_ref()],
@@ -617,6 +709,88 @@ pub struct ClaimStarterPack<'info> {
     )]
     pub player_profile: Account<'info, PlayerProfile>,
     
+    #[account(mut)]
+    pub player: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct GachaDraw<'info> {
+    #[account(
+        mut,
+        seeds = [b"player_profile", player.key().as_ref()],
+        bump = player_profile.bump
+    )]
+    pub player_profile: Account<'info, PlayerProfile>,
+    
+    #[account(
+        seeds = [b"game_config"],
+        bump = game_config.bump
+    )]
+    pub game_config: Account<'info, GameConfig>,
+    
+    /// The card template to mint (client picks based on rarity roll)
+    #[account(
+        seeds = [b"card_template", card_template.card_type_id.to_le_bytes().as_ref()],
+        bump = card_template.bump
+    )]
+    pub card_template: Account<'info, CardTemplate>,
+    
+    /// New mint account for the NFT card (initialized by client with game_config as mint authority)
+    #[account(
+        mut,
+        constraint = card_mint.mint_authority.unwrap() == game_config.key() @ GameError::Unauthorized
+    )]
+    pub card_mint: Account<'info, Mint>,
+    
+    /// Player's token account for this card mint
+    #[account(
+        init,
+        payer = player,
+        associated_token::mint = card_mint,
+        associated_token::authority = player,
+    )]
+    pub player_card_token_account: Account<'info, TokenAccount>,
+    
+    /// Card instance PDA to store rolled stats
+    #[account(
+        init,
+        payer = player,
+        space = CardInstance::LEN,
+        seeds = [b"card_instance", card_mint.key().as_ref()],
+        bump
+    )]
+    pub card_instance: Account<'info, CardInstance>,
+    
+    #[account(mut)]
+    pub player: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct AddGachaTickets<'info> {
+    #[account(
+        mut,
+        seeds = [b"player_profile", player_profile.wallet.as_ref()],
+        bump = player_profile.bump
+    )]
+    pub player_profile: Account<'info, PlayerProfile>,
+    
+    #[account(
+        seeds = [b"game_config"],
+        bump = game_config.bump,
+        has_one = authority
+    )]
+    pub game_config: Account<'info, GameConfig>,
+    
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct RollGacha<'info> {
     #[account(
         seeds = [b"rarity_pool", &[Rarity::Common.to_discriminant()]],
         bump = rarity_pool_common.bump
@@ -630,21 +804,12 @@ pub struct ClaimStarterPack<'info> {
     pub rarity_pool_rare: Account<'info, RarityPool>,
     
     #[account(
-        seeds = [b"rarity_pool", &[Rarity::Epic.to_discriminant()]],
-        bump = rarity_pool_epic.bump
-    )]
-    pub rarity_pool_epic: Account<'info, RarityPool>,
-    
-    #[account(
         seeds = [b"rarity_pool", &[Rarity::Legendary.to_discriminant()]],
         bump = rarity_pool_legendary.bump
     )]
     pub rarity_pool_legendary: Account<'info, RarityPool>,
     
-    #[account(mut)]
     pub player: Signer<'info>,
-    
-    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -685,12 +850,6 @@ pub struct PurchasePack<'info> {
         bump = rarity_pool_rare.bump
     )]
     pub rarity_pool_rare: Account<'info, RarityPool>,
-    
-    #[account(
-        seeds = [b"rarity_pool", &[Rarity::Epic.to_discriminant()]],
-        bump = rarity_pool_epic.bump
-    )]
-    pub rarity_pool_epic: Account<'info, RarityPool>,
     
     #[account(
         seeds = [b"rarity_pool", &[Rarity::Legendary.to_discriminant()]],
@@ -765,16 +924,14 @@ pub fn generate_random_u64(clock: &Clock, player: &Pubkey, salt: u64) -> u64 {
 }
 
 /// Roll for rarity based on probabilities
-/// Common: 60%, Rare: 25%, Epic: 12%, Legendary: 3%
+/// Common: 70%, Rare: 27%, Legendary: 3%
 pub fn roll_rarity(random_value: u64) -> Rarity {
     let roll = (random_value % 100) as u8;
     
-    if roll < 60 {
+    if roll < 70 {
         Rarity::Common
-    } else if roll < 85 {  // 60 + 25
+    } else if roll < 97 {  // 70 + 27
         Rarity::Rare
-    } else if roll < 97 {  // 85 + 12
-        Rarity::Epic
     } else {
         Rarity::Legendary
     }

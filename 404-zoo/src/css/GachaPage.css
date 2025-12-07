@@ -2,8 +2,101 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
   padding: 24px 0;
+}
+
+/* 抽奖券显示 */
+.ticket-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border: 2px solid rgba(251, 191, 36, 0.5);
+  border-radius: 16px;
+}
+
+.ticket-icon {
+  font-size: 32px;
+}
+
+.ticket-count {
+  font-size: 36px;
+  font-weight: 800;
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ticket-label {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+/* 免费领取按钮 */
+.claim-free-btn {
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  animation: pulse-glow 2s infinite;
+}
+
+.claim-free-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
+}
+
+.claim-free-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  animation: none;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(16, 185, 129, 0.6);
+  }
+}
+
+/* 消息提示 */
+.gacha-message {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.gacha-message.success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.gacha-message.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* 无抽奖券提示 */
+.no-tickets-hint {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
 .gacha-banner {
@@ -71,18 +164,23 @@
   font-weight: 700;
 }
 
-.rate-badge.ssr {
+.rate-badge.legendary {
   background: var(--gradient-gold);
   color: #1a1a2e;
 }
 
-.rate-badge.sr {
+.rate-badge.epic {
   background: var(--gradient-purple);
   color: white;
 }
 
-.rate-badge.r {
+.rate-badge.rare {
   background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+}
+
+.rate-badge.common {
+  background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
   color: white;
 }
 
@@ -158,4 +256,95 @@
   font-size: 24px;
   font-weight: 700;
   color: var(--secondary-color);
+}
+
+
+/* 抽到的卡片展示 */
+.drawn-card-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 2px solid var(--primary-color);
+  animation: card-reveal 0.5s ease-out;
+}
+
+.drawn-card-display.rarity-0 {
+  border-color: #6b7280;
+  box-shadow: 0 0 20px rgba(107, 114, 128, 0.3);
+}
+
+.drawn-card-display.rarity-1 {
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+.drawn-card-display.rarity-2 {
+  border-color: #f59e0b;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+  animation: card-reveal 0.5s ease-out, legendary-glow 2s infinite;
+}
+
+@keyframes card-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) rotateY(180deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
+@keyframes legendary-glow {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(245, 158, 11, 0.8);
+  }
+}
+
+.drawn-card-image {
+  width: 120px;
+  height: 160px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.drawn-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-placeholder {
+  font-size: 64px;
+}
+
+.drawn-card-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.drawn-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.drawn-card-rarity {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

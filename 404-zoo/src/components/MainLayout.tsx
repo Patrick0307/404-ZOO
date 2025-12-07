@@ -18,6 +18,7 @@ interface MainLayoutProps {
   isLoading: boolean
   onRegister: (username: string) => void
   playerProfile: PlayerProfileType | null
+  onProfileUpdate: (profile: PlayerProfileType) => void
   currentRoute: string
 }
 
@@ -31,7 +32,7 @@ const selectedTeam = [
   null, null, null, null, null, null, null
 ]
 
-function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, currentRoute }: MainLayoutProps) {
+function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, onProfileUpdate, currentRoute }: MainLayoutProps) {
   const navigate = useNavigate()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [username, setUsername] = useState('')
@@ -45,9 +46,9 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
   const renderPage = () => {
     switch (currentPage) {
       case 'backpack':
-        return <Backpack onBack={() => navigate('/home')} />
+        return <Backpack onBack={() => navigate('/home')} playerProfile={playerProfile} />
       case 'gacha':
-        return <GachaPage onBack={() => navigate('/home')} />
+        return <GachaPage onBack={() => navigate('/home')} playerProfile={playerProfile} onProfileUpdate={onProfileUpdate} />
       case 'marketplace':
         return <Marketplace onBack={() => navigate('/home')} />
       case 'pokedex':

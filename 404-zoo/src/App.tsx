@@ -123,6 +123,10 @@ function AppContent() {
     setIsLoading(false)
   }
 
+  const handleProfileUpdate = (profile: PlayerProfile) => {
+    setPlayerProfile(profile)
+  }
+
   // 初始加载中
   if (isLoading) {
     return (
@@ -160,6 +164,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="home"
             />
           )
@@ -176,6 +181,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="backpack"
             />
           )
@@ -192,6 +198,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="gacha"
             />
           )
@@ -208,6 +215,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="marketplace"
             />
           )
@@ -224,6 +232,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="pokedex"
             />
           )
@@ -240,6 +249,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="battle"
             />
           )
@@ -256,6 +266,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="leaderboard"
             />
           )
@@ -272,6 +283,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="team"
             />
           )
