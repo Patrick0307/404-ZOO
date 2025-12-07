@@ -41,6 +41,7 @@
   align-items: center;
   gap: 8px;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .pokedex-card.owned {
@@ -57,24 +58,28 @@
   box-shadow: 0 8px 24px var(--shadow-color);
 }
 
-.pokedex-number {
-  position: absolute;
-  top: 4px;
-  left: 8px;
-  font-size: 10px;
-  color: var(--text-secondary);
-  font-family: monospace;
-}
+
 
 .pokedex-avatar {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 50%;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
+  overflow: hidden;
+}
+
+.pokedex-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pokedex-avatar .fallback-icon {
+  font-size: 32px;
 }
 
 .pokedex-card.locked .pokedex-avatar {
@@ -97,6 +102,205 @@
   color: var(--text-secondary);
 }
 
-.pokedex-element {
+.pokedex-rarity {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Loading & Empty States */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-secondary);
+}
+
+/* Card Modal */
+.card-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.card-modal {
+  background: var(--bg-darker);
+  border-radius: 16px;
+  max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  z-index: 1;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-header {
+  padding: 24px;
+  text-align: center;
+  border-bottom: 2px solid;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+
+
+.modal-name {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 8px 0;
+  color: var(--text-primary);
+}
+
+.modal-rarity {
   font-size: 14px;
+  font-weight: 600;
+}
+
+.modal-avatar {
+  width: 180px;
+  height: 180px;
+  margin: 24px auto;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  overflow: hidden;
+}
+
+.modal-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-avatar .fallback-icon {
+  font-size: 72px;
+}
+
+.modal-info {
+  padding: 0 24px 24px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.info-value.stats {
+  font-family: monospace;
+  color: var(--secondary-color);
+}
+
+.info-value.uri {
+  font-size: 11px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.info-description {
+  margin-top: 16px;
+}
+
+.info-description p {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+/* Rarity-specific card styles */
+.pokedex-card.rarity-common {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(158, 158, 158, 0.1) 100%);
+}
+
+.pokedex-card.rarity-rare {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(33, 150, 243, 0.1) 100%);
+}
+
+.pokedex-card.rarity-epic {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(156, 39, 176, 0.1) 100%);
+}
+
+.pokedex-card.rarity-legendary {
+  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(255, 152, 0, 0.15) 100%);
 }

@@ -8,6 +8,7 @@ import {
   registerPlayer,
   type PlayerProfile,
 } from './services/contract'
+import { loadAndCacheCards } from './services/cardCache'
 
 // Phantom 类型
 interface PhantomProvider {
@@ -35,7 +36,7 @@ function AppContent() {
 
   const isRegistered = playerProfile !== null
 
-  // 启动时尝试自动重连
+  // 启动时尝试自动重连 + 预加载卡片数据
   useEffect(() => {
     async function tryAutoConnect() {
       const phantom = getPhantomProvider()
@@ -70,6 +71,9 @@ function AppContent() {
       }
       setIsLoading(false)
     }
+
+    // 启动时立即开始预加载卡片数据和图片
+    loadAndCacheCards().catch(console.error)
 
     tryAutoConnect()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,6 +123,10 @@ function AppContent() {
     setIsLoading(false)
   }
 
+  const handleProfileUpdate = (profile: PlayerProfile) => {
+    setPlayerProfile(profile)
+  }
+
   // 初始加载中
   if (isLoading) {
     return (
@@ -156,6 +164,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="home"
             />
           )
@@ -172,6 +181,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="backpack"
             />
           )
@@ -188,6 +198,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="gacha"
             />
           )
@@ -204,6 +215,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="marketplace"
             />
           )
@@ -220,6 +232,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="pokedex"
             />
           )
@@ -236,6 +249,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="battle"
             />
           )
@@ -252,6 +266,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="leaderboard"
             />
           )
@@ -268,6 +283,7 @@ function AppContent() {
               isLoading={isLoading}
               onRegister={handleRegister}
               playerProfile={playerProfile}
+              onProfileUpdate={handleProfileUpdate}
               currentRoute="team"
             />
           )
