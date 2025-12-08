@@ -57,17 +57,6 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
           <div className="home-screen">
             <h1 className="home-title">404 ZOO</h1>
             <p className="home-subtitle">欢迎回来，{playerProfile?.username || 'Player'}！</p>
-            <div className="home-actions">
-              <button className="home-action-btn" onClick={() => handleNavigate('team')}>
-                👥 配置阵容
-              </button>
-              <button className="home-action-btn" onClick={() => handleNavigate('gacha')}>
-                🎰 抽卡
-              </button>
-              <button className="home-action-btn" onClick={() => handleNavigate('battle')}>
-                ⚔️ 对战
-              </button>
-            </div>
           </div>
         )
     }
