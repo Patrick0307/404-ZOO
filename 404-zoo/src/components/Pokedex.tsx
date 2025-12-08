@@ -42,7 +42,6 @@ function Pokedex({ onBack }: PokedexProps) {
     switch (rarity) {
       case Rarity.Common: return '⚪'
       case Rarity.Rare: return '🔵'
-      case Rarity.Epic: return '🟣'
       case Rarity.Legendary: return '🟠'
       default: return '⚪'
     }
