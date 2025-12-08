@@ -769,3 +769,207 @@ export async function gachaDraw(
     mintAddress: mintPubkey.toBase58()
   }
 }
+
+// ============================================================================
+// 卡组 (Deck) 相关功能
+// ============================================================================
+
+// 获取 PlayerDeck PDA
+export function getPlayerDeckPDA(playerPubkey: PublicKey, deckIndex: number): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('player_deck'), playerPubkey.toBuffer(), Buffer.from([deckIndex])],
+    PROGRAM_ID
+  )
+}
+
+// PlayerDeck 类型
+export interface PlayerDeck {
+  owner: PublicKey
+  deckIndex: number
+  deckName: string
+  cardMints: PublicKey[]
+  isActive: boolean
+}
+
+// 解析 PlayerDeck 账户数据
+function parsePlayerDeck(data: Buffer): PlayerDeck {
+  // 8 (discriminator) + 32 (owner) + 1 (deck_index) + 4 + 32 (deck_name) 
+  // + 4 + (32 * n) (card_mints vec) + 1 (is_active) + 1 (bump)
+  let offset = 8 // skip discriminator
+
+  const owner = new PublicKey(data.slice(offset, offset + 32))
+  offset += 32
+
+  const deckIndex = data[offset]
+  offset += 1
+
+  const nameLen = data.readUInt32LE(offset)
+  offset += 4
+  const deckName = data.slice(offset, offset + nameLen).toString('utf-8')
+  offset += nameLen
+
+  const mintsLen = data.readUInt32LE(offset)
+  offset += 4
+  const cardMints: PublicKey[] = []
+  for (let i = 0; i < mintsLen; i++) {
+    cardMints.push(new PublicKey(data.slice(offset, offset + 32)))
+    offset += 32
+  }
+
+  const isActive = data[offset] === 1
+
+  return { owner, deckIndex, deckName, cardMints, isActive }
+}
+
+// 获取玩家的单个卡组
+export async function getPlayerDeck(playerPubkey: PublicKey, deckIndex: number): Promise<PlayerDeck | null> {
+  try {
+    const [deckPDA] = getPlayerDeckPDA(playerPubkey, deckIndex)
+    const accountInfo = await connection.getAccountInfo(deckPDA)
+
+    if (accountInfo && accountInfo.data) {
+      const deck = parsePlayerDeck(Buffer.from(accountInfo.data))
+      if (deck.isActive) {
+        return deck
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting player deck:', error)
+    return null
+  }
+}
+
+// 获取玩家的所有卡组 (最多5个)
+export async function getPlayerDecks(playerPubkey: PublicKey): Promise<PlayerDeck[]> {
+  const decks: PlayerDeck[] = []
+  
+  for (let i = 0; i < 5; i++) {
+    const deck = await getPlayerDeck(playerPubkey, i)
+    if (deck) {
+      decks.push(deck)
+    }
+  }
+  
+  return decks
+}
+
+// Anchor instruction discriminator for "save_deck"
+// sha256("global:save_deck")[0..8]
+function getSaveDeckDiscriminator(): Buffer {
+  return Buffer.from([60, 123, 78, 73, 68, 233, 192, 56])
+}
+
+// Anchor instruction discriminator for "delete_deck"
+// sha256("global:delete_deck")[0..8]
+function getDeleteDeckDiscriminator(): Buffer {
+  return Buffer.from([200, 213, 71, 120, 161, 65, 82, 101])
+}
+
+// 保存卡组到链上
+export async function saveDeck(
+  playerPubkey: PublicKey,
+  deckIndex: number,
+  deckName: string,
+  cardMints: PublicKey[]
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [playerDeckPDA] = getPlayerDeckPDA(playerPubkey, deckIndex)
+
+  // 构建指令数据
+  // discriminator (8) + deck_index (1 byte) + deck_name (4 + len) + card_mints vec (4 + 32*n)
+  const nameBytes = Buffer.from(deckName, 'utf-8')
+  
+  const dataSize = 8 + 1 + 4 + nameBytes.length + 4 + (32 * cardMints.length)
+  const data = Buffer.alloc(dataSize)
+  let offset = 0
+  
+  // Discriminator
+  const discriminator = getSaveDeckDiscriminator()
+  discriminator.copy(data, offset)
+  offset += 8
+  
+  // deck_index
+  data.writeUInt8(deckIndex, offset)
+  offset += 1
+  
+  // deck_name (string: 4 bytes len + bytes)
+  data.writeUInt32LE(nameBytes.length, offset)
+  offset += 4
+  nameBytes.copy(data, offset)
+  offset += nameBytes.length
+  
+  // card_mints (vec: 4 bytes len + pubkeys)
+  data.writeUInt32LE(cardMints.length, offset)
+  offset += 4
+  for (const mint of cardMints) {
+    mint.toBuffer().copy(data, offset)
+    offset += 32
+  }
+
+  console.log('saveDeck debug:', {
+    discriminator: Array.from(discriminator),
+    deckIndex,
+    deckName,
+    cardMintsCount: cardMints.length,
+    dataHex: data.toString('hex').slice(0, 50) + '...',
+    playerDeckPDA: playerDeckPDA.toBase58(),
+  })
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: playerDeckPDA, isSigner: false, isWritable: true },
+      { pubkey: playerPubkey, isSigner: true, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = playerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Deck saved! Index: ${deckIndex}, Name: ${deckName}, TX:`, txId)
+
+  return txId
+}
+
+// 删除卡组
+export async function deleteDeck(
+  playerPubkey: PublicKey,
+  deckIndex: number
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [playerDeckPDA] = getPlayerDeckPDA(playerPubkey, deckIndex)
+
+  // 构建指令数据: discriminator + deck_index
+  const data = Buffer.alloc(9)
+  getDeleteDeckDiscriminator().copy(data, 0)
+  data.writeUInt8(deckIndex, 8)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: playerDeckPDA, isSigner: false, isWritable: true },
+      { pubkey: playerPubkey, isSigner: true, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = playerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Deck deleted! Index: ${deckIndex}, TX:`, txId)
+
+  return txId
+}

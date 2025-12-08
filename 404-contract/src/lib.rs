@@ -365,6 +365,44 @@ pub mod zoo_contract {
         Ok(())
     }
     
+    /// Save or update a player's deck (up to 10 cards)
+    /// deck_index: 0-4 (player can have up to 5 decks)
+    pub fn save_deck(
+        ctx: Context<SaveDeck>,
+        deck_index: u8,
+        deck_name: String,
+        card_mints: Vec<Pubkey>,
+    ) -> Result<()> {
+        require!(deck_index < PlayerDeck::MAX_DECKS, GameError::InvalidDeckIndex);
+        require!(card_mints.len() <= PlayerDeck::MAX_CARDS, GameError::TooManyCardsInDeck);
+        validate_string_length(&deck_name, PlayerDeck::MAX_NAME_LEN)?;
+        
+        let player_deck = &mut ctx.accounts.player_deck;
+        player_deck.owner = ctx.accounts.player.key();
+        player_deck.deck_index = deck_index;
+        player_deck.deck_name = deck_name.clone();
+        player_deck.card_mints = card_mints.clone();
+        player_deck.is_active = true;
+        player_deck.bump = ctx.bumps.player_deck;
+        
+        msg!("Saved deck {} for player {}", deck_name, ctx.accounts.player.key());
+        msg!("Cards in deck: {}", card_mints.len());
+        
+        Ok(())
+    }
+    
+    /// Delete a player's deck (set to inactive)
+    pub fn delete_deck(ctx: Context<DeleteDeck>, _deck_index: u8) -> Result<()> {
+        let player_deck = &mut ctx.accounts.player_deck;
+        player_deck.is_active = false;
+        player_deck.card_mints = Vec::new();
+        player_deck.deck_name = String::new();
+        
+        msg!("Deleted deck {} for player {}", _deck_index, ctx.accounts.player.key());
+        
+        Ok(())
+    }
+
     pub fn record_match_result(
         ctx: Context<RecordMatchResult>,
         trophy_change: u32,
@@ -516,6 +554,27 @@ impl CardInstance {
     pub const LEN: usize = 8 + 32 + 4 + 2 + 2 + 32 + 1;
 }
 
+/// Player's saved deck (up to 10 cards)
+#[account]
+pub struct PlayerDeck {
+    pub owner: Pubkey,              // Player wallet
+    pub deck_index: u8,             // 0-4 (max 5 decks per player)
+    pub deck_name: String,          // Max 32 chars
+    pub card_mints: Vec<Pubkey>,    // Up to 10 card mint addresses
+    pub is_active: bool,            // false = deleted/empty
+    pub bump: u8,
+}
+
+impl PlayerDeck {
+    pub const MAX_DECKS: u8 = 5;
+    pub const MAX_CARDS: usize = 10;
+    pub const MAX_NAME_LEN: usize = 32;
+    
+    // 8 (discriminator) + 32 (owner) + 1 (deck_index) + 4 + 32 (deck_name) 
+    // + 4 + (32 * 10) (card_mints vec) + 1 (is_active) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 1 + 4 + 32 + 4 + (32 * 10) + 1 + 1;
+}
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -597,6 +656,12 @@ pub enum GameError {
     
     #[msg("Invalid draw count (must be 1-10)")]
     InvalidDrawCount,
+    
+    #[msg("Invalid deck index (must be 0-4)")]
+    InvalidDeckIndex,
+    
+    #[msg("Too many cards in deck (max 10)")]
+    TooManyCardsInDeck,
 }
 
 // ============================================================================
@@ -862,6 +927,38 @@ pub struct PurchasePack<'info> {
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(deck_index: u8)]
+pub struct SaveDeck<'info> {
+    #[account(
+        init_if_needed,
+        payer = player,
+        space = PlayerDeck::LEN,
+        seeds = [b"player_deck", player.key().as_ref(), &[deck_index]],
+        bump
+    )]
+    pub player_deck: Account<'info, PlayerDeck>,
+    
+    #[account(mut)]
+    pub player: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(deck_index: u8)]
+pub struct DeleteDeck<'info> {
+    #[account(
+        mut,
+        seeds = [b"player_deck", player.key().as_ref(), &[deck_index]],
+        bump = player_deck.bump,
+        constraint = player_deck.owner == player.key() @ GameError::Unauthorized
+    )]
+    pub player_deck: Account<'info, PlayerDeck>,
+    
+    pub player: Signer<'info>,
 }
 
 #[derive(Accounts)]

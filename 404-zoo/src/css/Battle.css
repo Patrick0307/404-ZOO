@@ -4,6 +4,71 @@
   gap: 32px;
 }
 
+/* 卡组选择 */
+.deck-select-section {
+  background: var(--bg-darker);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.deck-select-section h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.no-deck-hint {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 2px dashed var(--border-color);
+}
+
+.deck-select-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.deck-select-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-select-item:hover {
+  border-color: var(--primary-color);
+}
+
+.deck-select-item.selected {
+  border-color: var(--primary-color);
+  background: rgba(107, 92, 231, 0.15);
+}
+
+.deck-select-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.deck-select-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* 对战模式 */
 .battle-modes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -72,8 +137,13 @@
   margin-top: 8px;
 }
 
-.mode-btn:hover {
+.mode-btn:hover:not(:disabled) {
   box-shadow: 0 8px 24px rgba(107, 92, 231, 0.4);
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .mode-btn.secondary {
@@ -81,11 +151,12 @@
   color: var(--text-primary);
 }
 
-.mode-btn.secondary:hover {
+.mode-btn.secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
   box-shadow: none;
 }
 
+/* 战绩统计 */
 .battle-stats {
   background: var(--bg-darker);
   border-radius: 16px;
@@ -132,4 +203,19 @@
 .battle-stats .stat-label {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .deck-select-list {
+    flex-direction: column;
+  }
+  
+  .deck-select-item {
+    width: 100%;
+  }
 }

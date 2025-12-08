@@ -8,6 +8,7 @@ import Marketplace from './Marketplace'
 import Pokedex from './Pokedex'
 import Battle from './Battle'
 import Leaderboard from './Leaderboard'
+import TeamBuilder from './TeamBuilder'
 import type { PlayerProfile as PlayerProfileType } from '../services/contract'
 import '../css/MainLayout.css'
 
@@ -23,14 +24,6 @@ interface MainLayoutProps {
 }
 
 type PageType = 'home' | 'backpack' | 'gacha' | 'marketplace' | 'pokedex' | 'battle' | 'leaderboard' | 'team'
-
-// 模拟已选择的阵容数据
-const selectedTeam = [
-  { id: 1, name: '火焰龙', emoji: '🐉' },
-  { id: 2, name: '雷电鸟', emoji: '⚡' },
-  { id: 3, name: '水晶龟', emoji: '🐢' },
-  null, null, null, null, null, null, null
-]
 
 function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, onProfileUpdate, currentRoute }: MainLayoutProps) {
   const navigate = useNavigate()
@@ -54,70 +47,16 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
       case 'pokedex':
         return <Pokedex onBack={() => navigate('/home')} />
       case 'battle':
-        return <Battle onBack={() => navigate('/home')} />
+        return <Battle onBack={() => navigate('/home')} playerProfile={playerProfile} />
       case 'leaderboard':
         return <Leaderboard onBack={() => navigate('/home')} />
       case 'team':
-        return (
-          <div className="page-container">
-            <div className="page-header">
-              <span className="icon">👥</span>
-              <h2>组队</h2>
-              <button className="back-btn" onClick={() => navigate('/home')}>返回</button>
-            </div>
-            <p className="team-hint">从背包中选择卡片加入阵容</p>
-            <div className="team-builder">
-              <div className="team-slots">
-                {Array.from({ length: 10 }).map((_, index) => (
-                  <div key={index} className="team-slot">
-                    <div className="slot-number">{index + 1}</div>
-                    {selectedTeam[index] ? (
-                      <div className="slot-card">
-                        <span className="card-emoji">{selectedTeam[index]?.emoji}</span>
-                        <span className="card-name">{selectedTeam[index]?.name}</span>
-                      </div>
-                    ) : (
-                      <div className="slot-empty">
-                        <span>+</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="available-cards">
-                <h3>可用卡片</h3>
-                <div className="cards-grid">
-                  {['🦁', '🐯', '🐻', '🐼', '🦊', '🐰'].map((emoji, i) => (
-                    <div key={i} className="available-card">
-                      <span>{emoji}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )
+        return <TeamBuilder onBack={() => navigate('/home')} playerProfile={playerProfile} />
       default:
         return (
           <div className="home-screen">
             <h1 className="home-title">404 ZOO</h1>
-            <p className="home-subtitle">我的出战阵容</p>
-            <div className="card-slots">
-              {selectedTeam.map((card, index) => (
-                <div key={index} className={`card-slot ${card ? 'filled' : ''}`}>
-                  <div className="slot-number">{index + 1}</div>
-                  {card ? (
-                    <div className="slot-card-display">
-                      <span className="card-emoji">{card.emoji}</span>
-                    </div>
-                  ) : (
-                    <div className="slot-placeholder">
-                      <span>-</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p className="home-subtitle">欢迎回来，{playerProfile?.username || 'Player'}！</p>
           </div>
         )
     }
