@@ -22,15 +22,18 @@ interface DrawnCard {
   template: CardTemplate | null
 }
 
+type AnimationState = 'idle' | 'charging' | 'overload' | 'revealing' | 'flipping' | 'complete' | 'fading'
+
 function GachaPage({ onBack, playerProfile, onProfileUpdate }: GachaPageProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [lastDrawnCard, setLastDrawnCard] = useState<DrawnCard | null>(null)
+  const [recentDraws, setRecentDraws] = useState<DrawnCard[]>([])
+  const [animationState, setAnimationState] = useState<AnimationState>('idle')
+  const [currentCard, setCurrentCard] = useState<DrawnCard | null>(null)
+  const [showFlash, setShowFlash] = useState(false)
 
   const tickets = playerProfile?.gachaTickets ?? 0
   const hasClaimedFree = playerProfile?.hasClaimedStarterPack ?? false
 
-  // 刷新玩家数据
   const refreshProfile = async () => {
     if (!playerProfile) return
     const updated = await getPlayerProfile(playerProfile.wallet)
@@ -39,139 +42,244 @@ function GachaPage({ onBack, playerProfile, onProfileUpdate }: GachaPageProps) {
     }
   }
 
-  // 领取免费10抽
   const handleClaimFree = async () => {
     if (!playerProfile || hasClaimedFree) return
     
     setIsLoading(true)
-    setMessage(null)
-    
     try {
       await claimStarterTickets(playerProfile.wallet)
       await refreshProfile()
-      setMessage({ type: 'success', text: '🎉 成功领取10张免费抽奖券！' })
     } catch (error) {
       console.error('Claim failed:', error)
-      setMessage({ type: 'error', text: '领取失败，请重试' })
     }
-    
     setIsLoading(false)
   }
 
-  // 单抽
   const handleSingleDraw = async () => {
-    if (!playerProfile || tickets < 1) return
+    if (!playerProfile || tickets < 1 || animationState !== 'idle') return
     
     setIsLoading(true)
-    setMessage(null)
-    setLastDrawnCard(null)
     
     try {
+      // Start drawing from contract
       const result = await gachaDraw(playerProfile.wallet)
       const template = await getCardTemplate(result.cardTypeId)
+      const drawnCard = { result, template }
       
-      setLastDrawnCard({ result, template })
+      // Phase 1: Charging (0.3s)
+      setAnimationState('charging')
+      
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Phase 2: Overload (1.2s)
+      setAnimationState('overload')
+      
+      await new Promise(resolve => setTimeout(resolve, 1200))
+      
+      // Flash effect
+      setShowFlash(true)
+      setTimeout(() => setShowFlash(false), 300)
+      
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Phase 3: Revealing card back
+      setCurrentCard(drawnCard)
+      setAnimationState('revealing')
+      
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Phase 4: Auto flip to show card front (slow flip)
+      setAnimationState('flipping')
+      
+      // Legendary card gets extra flash when flipping
+      const isLegendary = template?.rarity === 2
+      if (isLegendary) {
+        setTimeout(() => {
+          setShowFlash(true)
+          setTimeout(() => setShowFlash(false), 200)
+        }, 750)
+      }
+      
+      // Wait longer for legendary cards to show off
+      await new Promise(resolve => setTimeout(resolve, isLegendary ? 3000 : 2000))
+      
+      // Phase 5: Complete - add to log
+      setAnimationState('complete')
+      setRecentDraws(prev => [drawnCard, ...prev].slice(0, 6))
+      
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Phase 6: Fade out
+      setAnimationState('fading')
+      
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Reset to idle
+      setAnimationState('idle')
+      setCurrentCard(null)
+      
       await refreshProfile()
-      
-      const rarityText = template ? RarityNames[template.rarity] : 'Unknown'
-      const cardName = template?.name ?? `Card #${result.cardTypeId}`
-      setMessage({ type: 'success', text: `🎴 抽到了 ${cardName} (${rarityText})！` })
     } catch (error) {
       console.error('Draw failed:', error)
-      setMessage({ type: 'error', text: '抽卡失败，请重试' })
+      setAnimationState('idle')
+      setCurrentCard(null)
     }
-    
     setIsLoading(false)
+  }
+  
+  const handleCardClick = () => {
+    if (animationState === 'revealing') {
+      setAnimationState('flipping')
+    }
+  }
+
+  const handleTenDraw = async () => {
+    if (!playerProfile || tickets < 10) return
+    
+    setIsLoading(true)
+    try {
+      const draws: DrawnCard[] = []
+      for (let i = 0; i < 10; i++) {
+        const result = await gachaDraw(playerProfile.wallet)
+        const template = await getCardTemplate(result.cardTypeId)
+        draws.push({ result, template })
+      }
+      setRecentDraws(prev => [...draws, ...prev].slice(0, 6))
+      await refreshProfile()
+    } catch (error) {
+      console.error('Draw failed:', error)
+    }
+    setIsLoading(false)
+  }
+
+  const getStars = (rarity: number) => {
+    switch (rarity) {
+      case 2: return 5
+      case 1: return 4
+      default: return 3
+    }
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="icon">🎴</span>
-        <h2>抽卡</h2>
-        <button className="back-btn" onClick={onBack}>返回</button>
+    <div className={`gacha-container gacha--${animationState}`}>
+      {/* Screen overlay */}
+      {animationState !== 'idle' && (
+        <div className="gacha-overlay" />
+      )}
+      
+      {/* Flash effect */}
+      {showFlash && <div className="screen-flash" />}
+      
+      {/* Card reveal */}
+      {currentCard && animationState !== 'idle' && (
+        <div className="card-reveal-container">
+          <div 
+            className={`card-reveal ${animationState === 'flipping' || animationState === 'complete' ? 'flipped' : 'showing-back'} rarity-${currentCard.template?.rarity ?? 0}`}
+            onClick={handleCardClick}
+          >
+            {/* Card back */}
+            <div className="card-back">
+              <div className="card-back-content">
+                <div className="card-back-logo">⚠</div>
+                <div className="card-back-text">ERROR</div>
+              </div>
+            </div>
+            
+            {/* Card front */}
+            <div className="card-front">
+              <div className="card-front-stars">
+                {'★'.repeat(getStars(currentCard.template?.rarity ?? 0))}
+              </div>
+              <div className="card-front-image">
+                {currentCard.template?.imageUri ? (
+                  <img src={currentCard.template.imageUri} alt={currentCard.template.name} />
+                ) : (
+                  <span className="card-fallback">🃏</span>
+                )}
+              </div>
+              <div className="card-front-name">
+                {currentCard.template?.name ?? `ERR.${currentCard.result.cardTypeId}_WOLF`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="gacha-title">
+        GACHA_NODE // ERROR_SUMMON_PROTOCOL
+        <span className="terminal-cursor">_</span>
       </div>
 
-      <div className="gacha-content">
-        {/* 抽奖券显示 */}
-        <div className="ticket-display">
-          <span className="ticket-icon">🎟️</span>
-          <span className="ticket-count">{tickets}</span>
-          <span className="ticket-label">抽奖券</span>
-        </div>
+      <div className="gacha-content-layout">
+        {/* 左侧：警告图标和按钮 */}
+        <div className="gacha-left">
+          <div className={`gacha-warning-icon core-${animationState}`}>
+            <img src="/gacha-warning.png" alt="Warning" className="warning-image" />
+          </div>
 
-        {/* 免费领取按钮 */}
-        {!hasClaimedFree && (
           <button 
-            className="claim-free-btn"
-            onClick={handleClaimFree}
-            disabled={isLoading}
-          >
-            {isLoading ? '领取中...' : '🎁 领取免费10抽'}
-          </button>
-        )}
-
-        {/* 消息提示 */}
-        {message && (
-          <div className={`gacha-message ${message.type}`}>
-            {message.text}
-          </div>
-        )}
-
-        {/* 抽到的卡片展示 */}
-        {lastDrawnCard && lastDrawnCard.template && (
-          <div className={`drawn-card-display rarity-${lastDrawnCard.template.rarity}`}>
-            <div className="drawn-card-image">
-              {lastDrawnCard.template.imageUri ? (
-                <img src={lastDrawnCard.template.imageUri} alt={lastDrawnCard.template.name} />
-              ) : (
-                <span className="card-placeholder">🃏</span>
-              )}
-            </div>
-            <div className="drawn-card-info">
-              <span className="drawn-card-name">{lastDrawnCard.template.name}</span>
-              <span className="drawn-card-rarity">{RarityNames[lastDrawnCard.template.rarity]}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="gacha-banner">
-          <span className="banner-featured">🐉</span>
-          <span className="banner-title">神龙降临</span>
-          <span className="banner-subtitle">限定卡池 · SSR概率UP</span>
-        </div>
-
-        <div className="gacha-rates">
-          <div className="rate-item">
-            <span className="rate-badge legendary">传说</span>
-            <span className="rate-value">3%</span>
-          </div>
-          <div className="rate-item">
-            <span className="rate-badge rare">稀有</span>
-            <span className="rate-value">27%</span>
-          </div>
-          <div className="rate-item">
-            <span className="rate-badge common">普通</span>
-            <span className="rate-value">70%</span>
-          </div>
-        </div>
-
-        <div className="gacha-buttons">
-          <button 
-            className="gacha-btn single"
+            className={`extract-btn btn-${animationState}`}
             onClick={handleSingleDraw}
-            disabled={isLoading || tickets < 1}
+            disabled={isLoading || tickets < 1 || animationState !== 'idle'}
           >
-            <span className="btn-label">{isLoading ? '抽卡中...' : '单抽'}</span>
-            <span className="btn-cost">🎟️ x1</span>
+            {isLoading ? 'EXTRACTING...' : 'EXTRACT_ONE'}
           </button>
+
+          <button 
+            className="extract-btn"
+            onClick={handleTenDraw}
+            disabled={isLoading || tickets < 10}
+          >
+            {isLoading ? 'EXTRACTING...' : 'EXTRACT_TEN'}
+          </button>
+
+          {!hasClaimedFree && (
+            <button 
+              className="claim-free-btn-cyber"
+              onClick={handleClaimFree}
+              disabled={isLoading}
+            >
+              {isLoading ? 'CLAIMING...' : 'CLAIM_FREE_10'}
+            </button>
+          )}
         </div>
 
-        {tickets === 0 && hasClaimedFree && (
-          <div className="no-tickets-hint">
-            暂无抽奖券，可通过对战获得奖励
+        {/* 右侧：抽卡日志 */}
+        <div className="gacha-right">
+          <div className="gacha-log-header">GACHA_LOG:</div>
+          
+          <div className="gacha-log-list">
+            {recentDraws.length === 0 ? (
+              <div className="gacha-log-empty">NO_RECENT_DRAWS</div>
+            ) : (
+              recentDraws.map((draw, index) => (
+                <div key={index} className="gacha-log-item">
+                  <div className="log-stars">
+                    {'★'.repeat(getStars(draw.template?.rarity ?? 0))}
+                  </div>
+                  <div className="log-name">
+                    {draw.template?.name ?? `ERR.${draw.result.cardTypeId}_WOLF`}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        )}
+
+          <div className="gacha-log-header" style={{ marginTop: '40px' }}>GACHA_LOG:</div>
+          <div className="gacha-log-list">
+            <div className="gacha-log-item">
+              <div className="log-stars">★★★★ ★★★★</div>
+            </div>
+            <div className="gacha-log-item">
+              <div className="log-stars">★★★</div>
+              <div className="log-name">ERR.404_WOLF</div>
+            </div>
+          </div>
+
+          <div className="gacha-coins-display">
+            ERR_COINS: {tickets}
+          </div>
+        </div>
       </div>
     </div>
   )

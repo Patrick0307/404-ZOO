@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import UserProfile from './UserProfile'
-import DrawerMenu from './DrawerMenu'
 import Backpack from './Backpack'
 import GachaPage from './GachaPage'
 import Marketplace from './Marketplace'
@@ -27,7 +25,6 @@ type PageType = 'home' | 'backpack' | 'gacha' | 'marketplace' | 'pokedex' | 'bat
 
 function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, onProfileUpdate, currentRoute }: MainLayoutProps) {
   const navigate = useNavigate()
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [username, setUsername] = useState('')
 
   const currentPage = currentRoute as PageType
@@ -55,8 +52,9 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
       default:
         return (
           <div className="home-screen">
-            <h1 className="home-title">404 ZOO</h1>
-            <p className="home-subtitle">欢迎回来，{playerProfile?.username || 'Player'}！</p>
+            <button className="battle-button" onClick={() => handleNavigate('battle')}>
+              <img src="/battle-button.png" alt="BATTLE" className="battle-button-img" />
+            </button>
           </div>
         )
     }
@@ -101,26 +99,99 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
     )
   }
 
+  // 根据当前页面获取背景图片
+  const getBackgroundImage = () => {
+    switch (currentPage) {
+      case 'marketplace':
+        return '/market-bg.png'
+      case 'team':
+        return '/market-bg.png'
+      case 'backpack':
+        return '/market-bg.png'
+      case 'gacha':
+        return '/market-bg.png'
+      case 'leaderboard':
+        return '/market-bg.png'
+      case 'pokedex':
+        return '/market-bg.png'
+      case 'battle':
+        return '/market-bg.png'
+      default:
+        return '/background1.png'
+    }
+  }
+
   return (
     <div className="main-layout">
-      <UserProfile 
-        walletAddress={walletAddress} 
-        onDisconnect={onDisconnect}
-        username={playerProfile?.username || 'Player'}
-        trophies={playerProfile?.trophies || 0}
-        wins={playerProfile?.totalWins || 0}
-      />
+      <div className="main-layout-bg">
+        <img src={getBackgroundImage()} alt="" className="background-image" />
+      </div>
+      
+      {/* 顶部导航栏 */}
+      <header className="top-nav">
+        <div className="logo-section">
+          <img src="/logo.png" alt="404 ZOO" className="logo-img" />
+        </div>
+        
+        <nav className="nav-menu">
+          <button 
+            className={`nav-btn-img ${currentPage === 'home' ? 'active' : ''}`}
+            onClick={() => handleNavigate('home')}
+          >
+            <img src="/nav-home.png" alt="HOME" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'marketplace' ? 'active' : ''}`}
+            onClick={() => handleNavigate('marketplace')}
+          >
+            <img src="/nav-market.png" alt="MARKET" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'team' ? 'active' : ''}`}
+            onClick={() => handleNavigate('team')}
+          >
+            <img src="/nav-team.png" alt="TEAM" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'backpack' ? 'active' : ''}`}
+            onClick={() => handleNavigate('backpack')}
+          >
+            <img src="/nav-bag.png" alt="BAG" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'gacha' ? 'active' : ''}`}
+            onClick={() => handleNavigate('gacha')}
+          >
+            <img src="/nav-gacha.png" alt="GACHA" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'leaderboard' ? 'active' : ''}`}
+            onClick={() => handleNavigate('leaderboard')}
+          >
+            <img src="/nav-leaderboard.png" alt="LEADERBOARD" />
+          </button>
+          <button 
+            className={`nav-btn-img ${currentPage === 'pokedex' ? 'active' : ''}`}
+            onClick={() => handleNavigate('pokedex')}
+          >
+            <img src="/nav-collection.png" alt="COLLECTION" />
+          </button>
+        </nav>
+
+        <div className="user-info-section">
+          <div className="user-details">
+            <div className="user-name">{playerProfile?.username || 'Player'}</div>
+            <div className="user-wallet">{walletAddress}</div>
+          </div>
+          <button className="logout-btn" onClick={onDisconnect}>
+            LOGOUT
+          </button>
+        </div>
+      </header>
       
       <div className="main-content">
         {renderPage()}
       </div>
-
-      <DrawerMenu 
-        isOpen={isDrawerOpen}
-        onToggle={() => setIsDrawerOpen(!isDrawerOpen)}
-        onNavigate={handleNavigate}
-        currentPage={currentPage}
-      />
     </div>
   )
 }

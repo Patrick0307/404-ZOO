@@ -38,6 +38,15 @@ function Pokedex({ onBack }: PokedexProps) {
     }
   }
 
+  const getRarityStars = (rarity: Rarity): string => {
+    switch (rarity) {
+      case Rarity.Common: return '★★★'
+      case Rarity.Rare: return '★★★★'
+      case Rarity.Legendary: return '★★★★★'
+      default: return '★★★'
+    }
+  }
+
   const getRarityEmoji = (rarity: Rarity): string => {
     switch (rarity) {
       case Rarity.Common: return '⚪'
@@ -65,45 +74,43 @@ function Pokedex({ onBack }: PokedexProps) {
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="icon">📖</span>
-        <h2>Pokedex</h2>
-        <button className="back-btn" onClick={onBack}>Back</button>
-      </div>
+    <div className="pokedex-container">
+      <div className="pokedex-title">COLLECTION_DB // CARD_ARCHIVE</div>
 
-      <div className="pokedex-stats">
-        <div className="stat-box">
+      <div className="pokedex-stats-cyber">
+        <div className="stat-box-cyber">
           <span className="value">{cards.length}</span>
-          <span className="label">Cards Found</span>
+          <span className="label">CARDS_FOUND</span>
         </div>
-        <div className="stat-box">
+        <div className="stat-box-cyber">
           <span className="value">
             {cards.filter(c => c.rarity === Rarity.Legendary).length}
           </span>
-          <span className="label">Legendary</span>
+          <span className="label">LEGENDARY</span>
         </div>
       </div>
 
       {loading ? (
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading cards from chain...</p>
+        <div className="loading-container-cyber">
+          <div className="loading-spinner-cyber"></div>
+          <p>LOADING_CARDS...</p>
         </div>
       ) : cards.length === 0 ? (
-        <div className="empty-state">
-          <p>No cards found on chain</p>
+        <div className="empty-state-cyber">
+          <p>NO_CARDS_FOUND</p>
         </div>
       ) : (
-        <div className="pokedex-grid">
+        <div className="pokedex-grid-cyber">
           {cards.map(card => (
             <div
               key={card.cardTypeId}
-              className={`pokedex-card owned rarity-${RarityToName[card.rarity]}`}
+              className={`pokedex-card-cyber rarity-${RarityToName[card.rarity]}`}
               onClick={() => setSelectedCard(card)}
-              style={{ borderColor: RarityColors[card.rarity] }}
             >
-              <div className="pokedex-avatar">
+              <div className="card-stars" style={{ color: RarityColors[card.rarity] }}>
+                {getRarityStars(card.rarity)}
+              </div>
+              <div className="pokedex-avatar-cyber">
                 {shouldShowImage(card) ? (
                   <img
                     src={getImageUrl(card.imageUri)}
@@ -114,67 +121,81 @@ function Pokedex({ onBack }: PokedexProps) {
                   <span className="fallback-icon">{getTraitEmoji(card.traitType)}</span>
                 )}
               </div>
-              <span className="pokedex-name">{card.name}</span>
-              <span className="pokedex-rarity" style={{ color: RarityColors[card.rarity] }}>
-                {getRarityEmoji(card.rarity)} {RarityNames[card.rarity]}
-              </span>
+              <span className="pokedex-name-cyber">{card.name}</span>
+              <span className="pokedex-error-code">ERR: {card.cardTypeId}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Card Detail Modal */}
+      {/* MTG-Style Card Detail Modal */}
       {selectedCard && (
-        <div className="card-modal-overlay" onClick={() => setSelectedCard(null)}>
-          <div className="card-modal" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedCard(null)}>×</button>
+        <div className="card-modal-overlay-mtg" onClick={() => setSelectedCard(null)}>
+          <div className="mtg-card" onClick={e => e.stopPropagation()}>
+            <div className="mtg-card-inner">
+              {/* Card Border with Glow */}
+              <div className={`mtg-border rarity-${RarityToName[selectedCard.rarity]}`}>
+                {/* Top Section - Name Only */}
+                <div className="mtg-header">
+                  <div className="mtg-name-box">
+                    <h2 className="mtg-card-name">{selectedCard.name}</h2>
+                  </div>
+                </div>
+
+                {/* Image Section */}
+                <div className="mtg-image-frame">
+                  <div className="mtg-image-container">
+                    {shouldShowImage(selectedCard) ? (
+                      <img
+                        src={getImageUrl(selectedCard.imageUri)}
+                        alt={selectedCard.name}
+                        className="mtg-card-image"
+                        onError={() => handleImageError(selectedCard.cardTypeId)}
+                      />
+                    ) : (
+                      <div className="mtg-fallback-image">
+                        <span className="fallback-icon-large">{getTraitEmoji(selectedCard.traitType)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Type Line with Stats */}
+                <div className="mtg-type-section">
+                  <div className="mtg-type-line">
+                    <div className="mtg-type-text">
+                      {RarityNames[selectedCard.rarity]} Creature — {TraitTypeNames[selectedCard.traitType]}
+                    </div>
+                  </div>
+                  <div className="mtg-stats-box">
+                    <div className="stat-label">Attack:</div>
+                    <div className="stat-value">{selectedCard.minAttack}-{selectedCard.maxAttack}</div>
+                    <div className="stat-separator">/</div>
+                    <div className="stat-label">Health:</div>
+                    <div className="stat-value">{selectedCard.minHealth}-{selectedCard.maxHealth}</div>
+                  </div>
+                </div>
+
+                {/* Text Box */}
+                <div className="mtg-text-box">
+                  <p className="mtg-description">{selectedCard.description}</p>
+                  <div className="mtg-flavor-text">
+                    <em>"In the depths of the 404 Zoo, legends are born from chaos."</em>
+                  </div>
+                </div>
+
+                {/* Bottom Info */}
+                <div className="mtg-bottom-info">
+                  <span className="mtg-set-info">404 ZOO</span>
+                  <span className="mtg-rarity-symbol" style={{ color: RarityColors[selectedCard.rarity] }}>
+                    {getRarityStars(selectedCard.rarity)}
+                  </span>
+                  <span className="mtg-card-number">#{selectedCard.cardTypeId}</span>
+                </div>
+              </div>
+            </div>
             
-            <div className="modal-header" style={{ borderColor: RarityColors[selectedCard.rarity] }}>
-              <h3 className="modal-name">{selectedCard.name}</h3>
-              <span className="modal-rarity" style={{ color: RarityColors[selectedCard.rarity] }}>
-                {getRarityEmoji(selectedCard.rarity)} {RarityNames[selectedCard.rarity]}
-              </span>
-            </div>
-
-            <div className="modal-avatar">
-              {shouldShowImage(selectedCard) ? (
-                <img
-                  src={getImageUrl(selectedCard.imageUri)}
-                  alt={selectedCard.name}
-                  onError={() => handleImageError(selectedCard.cardTypeId)}
-                />
-              ) : (
-                <span className="fallback-icon">{getTraitEmoji(selectedCard.traitType)}</span>
-              )}
-            </div>
-
-            <div className="modal-info">
-              <div className="info-row">
-                <span className="info-label">Class</span>
-                <span className="info-value">
-                  {getTraitEmoji(selectedCard.traitType)} {TraitTypeNames[selectedCard.traitType]}
-                </span>
-              </div>
-              
-              <div className="info-row">
-                <span className="info-label">Attack</span>
-                <span className="info-value stats">
-                  ⚔️ {selectedCard.minAttack} - {selectedCard.maxAttack}
-                </span>
-              </div>
-              
-              <div className="info-row">
-                <span className="info-label">Health</span>
-                <span className="info-value stats">
-                  ❤️ {selectedCard.minHealth} - {selectedCard.maxHealth}
-                </span>
-              </div>
-
-              <div className="info-description">
-                <span className="info-label">Description</span>
-                <p>{selectedCard.description}</p>
-              </div>
-            </div>
+            <button className="mtg-close-btn" onClick={() => setSelectedCard(null)}>✕</button>
           </div>
         </div>
       )}

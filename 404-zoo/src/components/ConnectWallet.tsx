@@ -81,31 +81,32 @@ function ConnectWallet({ onConnect }: ConnectWalletProps) {
 
   return (
     <div className="connect-wallet-container">
-      <div className="connect-wallet-bg"></div>
+      <div className="connect-wallet-bg">
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="background-video"
+        >
+          <source src="/background.mp4" type="video/mp4" />
+        </video>
+      </div>
+      
+      <header className="connect-header">
+        <img src="/logo.png" alt="404 ZOO" className="connect-logo" />
+      </header>
+      
       <div className="connect-wallet-content">
-        <div className="game-logo">
-          <span className="logo-text">404</span>
-          <span className="logo-sub">ZOO</span>
-        </div>
-        <h1 className="game-title">欢迎来到 404 Zoo</h1>
-        <p className="game-desc">连接你的 Phantom 钱包开始冒险</p>
-        
         <button 
           className="connect-btn" 
           onClick={handleConnect}
           disabled={isConnecting}
         >
-          <img 
-            src="https://phantom.app/img/phantom-icon-purple.svg" 
-            alt="Phantom" 
-            className="phantom-icon"
-          />
-          {isConnecting ? '连接中...' : '连接 Phantom 钱包'}
+          {isConnecting ? 'CONNECTING...' : 'CONNECT WALLET'}
         </button>
         
         {error && <p className="error-msg">{error}</p>}
-        
-        <p className="network-info">🟢 Solana Devnet</p>
       </div>
     </div>
   )

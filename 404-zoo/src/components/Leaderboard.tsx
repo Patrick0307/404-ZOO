@@ -17,49 +17,44 @@ const mockPlayers = [
 
 function Leaderboard({ onBack }: LeaderboardProps) {
   const getRankClass = (rank: number) => {
-    if (rank === 1) return 'top-1'
-    if (rank === 2) return 'top-2'
-    if (rank === 3) return 'top-3'
+    if (rank === 1) return 'rank-top-1'
+    if (rank === 2) return 'rank-top-2'
+    if (rank === 3) return 'rank-top-3'
     return ''
   }
 
   const getRankDisplay = (rank: number) => {
-    if (rank === 1) return '🥇'
-    if (rank === 2) return '🥈'
-    if (rank === 3) return '🥉'
-    return rank
+    return `#${rank.toString().padStart(2, '0')}`
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="icon">🏆</span>
-        <h2>排行榜</h2>
-        <button className="back-btn" onClick={onBack}>返回</button>
+    <div className="leaderboard-container">
+      <div className="leaderboard-title">RANK_SYSTEM // TOP_PLAYERS</div>
+
+      <div className="leaderboard-tabs-cyber">
+        <button className="tab-cyber active">SCORE_RANK</button>
+        <button className="tab-cyber">WIN_RANK</button>
+        <button className="tab-cyber">COLLECTION_RANK</button>
       </div>
 
-      <div className="leaderboard-tabs">
-        <button className="tab-btn active">积分榜</button>
-        <button className="tab-btn">胜场榜</button>
-        <button className="tab-btn">收藏榜</button>
-      </div>
-
-      <div className="leaderboard-list">
+      <div className="leaderboard-list-cyber">
         {mockPlayers.map(player => (
-          <div key={player.rank} className={`leaderboard-item ${getRankClass(player.rank)}`}>
-            <div className="rank">{getRankDisplay(player.rank)}</div>
-            <div className="player-avatar">🦊</div>
-            <div className="player-info">
-              <span className="player-name">{player.name}</span>
-              <span className="player-wallet">{player.wallet}</span>
+          <div key={player.rank} className={`leaderboard-row ${getRankClass(player.rank)}`}>
+            <div className="rank-number">{getRankDisplay(player.rank)}</div>
+            <div className="player-data">
+              <div className="player-name-cyber">{player.name}</div>
+              <div className="player-wallet-cyber">{player.wallet}</div>
             </div>
-            <div className="player-stats">
-              <div className="stat">
-                <span className="stat-value">{player.wins}</span>
-                <span className="stat-label">胜场</span>
+            <div className="player-stats-cyber">
+              <div className="stat-item">
+                <span className="stat-label-cyber">WINS:</span>
+                <span className="stat-value-cyber">{player.wins}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label-cyber">SCORE:</span>
+                <span className="stat-value-cyber score-highlight">{player.score}</span>
               </div>
             </div>
-            <div className="player-score">{player.score}</div>
           </div>
         ))}
       </div>

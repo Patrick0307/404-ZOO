@@ -15,8 +15,9 @@ interface BackpackProps {
 
 function Backpack({ onBack, playerProfile }: BackpackProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
+  const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<number | null>(null) // null = 全部
+  const [filter, setFilter] = useState<number | null>(null)
 
   useEffect(() => {
     if (playerProfile) {
@@ -30,6 +31,9 @@ function Backpack({ onBack, playerProfile }: BackpackProps) {
     try {
       const playerCards = await getPlayerCardsWithTemplates(playerProfile.wallet)
       setCards(playerCards)
+      if (playerCards.length > 0 && !selectedCard) {
+        setSelectedCard(playerCards[0])
+      }
     } catch (error) {
       console.error('Failed to load cards:', error)
     }
@@ -40,102 +44,113 @@ function Backpack({ onBack, playerProfile }: BackpackProps) {
     ? cards 
     : cards.filter(c => c.template?.rarity === filter)
 
-  const getRarityClass = (rarity: number) => {
+  const getRarityName = (rarity: number) => {
     switch (rarity) {
-      case Rarity.Legendary: return 'legendary'
-      case Rarity.Rare: return 'rare'
-      default: return 'common'
+      case Rarity.Legendary: return 'LEGENDARY'
+      case Rarity.Rare: return 'RARE'
+      default: return 'COMMON'
     }
   }
 
-  const getTraitEmoji = (traitType: number) => {
+  const getStars = (rarity: number) => {
+    switch (rarity) {
+      case Rarity.Legendary: return 5
+      case Rarity.Rare: return 4
+      default: return 3
+    }
+  }
+
+  const getTraitName = (traitType: number) => {
     switch (traitType) {
-      case 0: return '⚔️' // Warrior
-      case 1: return '🏹' // Archer
-      case 2: return '🗡️' // Assassin
-      default: return '❓'
+      case 0: return 'warrior'
+      case 1: return 'archer'
+      case 2: return 'assassin'
+      default: return 'unknown'
     }
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="icon">🎒</span>
-        <h2>背包</h2>
-        <button className="back-btn" onClick={onBack}>返回</button>
-      </div>
-      
-      <div className="backpack-stats">
-        <span>共 {cards.length} 张卡牌</span>
-        <button className="refresh-btn" onClick={loadCards} disabled={isLoading}>
-          {isLoading ? '加载中...' : '🔄 刷新'}
-        </button>
-      </div>
+    <div className="backpack-container">
+      {/* 页面标题 */}
+      <div className="bag-title">BAG_NODE // INVENTORY</div>
 
-      <div className="backpack-filters">
-        <button 
-          className={`filter-btn ${filter === null ? 'active' : ''}`}
-          onClick={() => setFilter(null)}
-        >
-          全部
-        </button>
-        <button 
-          className={`filter-btn ${filter === Rarity.Legendary ? 'active' : ''}`}
-          onClick={() => setFilter(Rarity.Legendary)}
-        >
-          传说
-        </button>
-        <button 
-          className={`filter-btn ${filter === Rarity.Rare ? 'active' : ''}`}
-          onClick={() => setFilter(Rarity.Rare)}
-        >
-          稀有
-        </button>
-        <button 
-          className={`filter-btn ${filter === Rarity.Common ? 'active' : ''}`}
-          onClick={() => setFilter(Rarity.Common)}
-        >
-          普通
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div className="loading-state">加载卡牌中...</div>
-      ) : filteredCards.length === 0 ? (
-        <div className="empty-state">
-          {cards.length === 0 ? '还没有卡牌，去抽卡吧！' : '没有符合条件的卡牌'}
-        </div>
-      ) : (
-        <div className="backpack-grid">
-          {filteredCards.map((card) => (
-            <div 
-              key={card.instance.mint.toBase58()} 
-              className={`creature-card ${getRarityClass(card.template?.rarity ?? 0)}`}
-            >
-              <div className="card-rarity">
-                {card.template ? RarityNames[card.template.rarity as Rarity] : '???'}
-              </div>
-              <div className="card-element">
-                {card.template ? getTraitEmoji(card.template.traitType) : '❓'}
-              </div>
-              <div className="card-avatar">
-                {card.template?.imageUri ? (
-                  <img src={card.template.imageUri} alt={card.template.name} />
-                ) : (
-                  <span className="creature-emoji">🃏</span>
-                )}
-              </div>
-              <div className="card-info">
-                <span className="card-name">{card.template?.name ?? `Card #${card.instance.cardTypeId}`}</span>
-                <div className="card-stats">
-                  <span className="stat attack">⚔️ {card.instance.attack}</span>
-                  <span className="stat health">❤️ {card.instance.health}</span>
+      <div className="bag-content">
+        {/* 左侧卡片网格 */}
+        <div className="bag-cards-section">
+          <div className="section-header">YOUR CARDS</div>
+          
+          {isLoading ? (
+            <div className="loading-state-cyber">LOADING...</div>
+          ) : filteredCards.length === 0 ? (
+            <div className="empty-state-cyber">NO_CARDS_FOUND</div>
+          ) : (
+            <div className="bag-cards-grid">
+              {filteredCards.map((card) => (
+                <div 
+                  key={card.instance.mint.toBase58()} 
+                  className={`bag-card-cyber ${selectedCard?.instance.mint.toBase58() === card.instance.mint.toBase58() ? 'selected' : ''} rarity-${card.template?.rarity ?? 0}`}
+                  onClick={() => setSelectedCard(card)}
+                >
+                  <div className="bag-card-stars">
+                    {'★'.repeat(getStars(card.template?.rarity ?? 0))}
+                  </div>
+                  <div className="bag-card-image">
+                    {card.template?.imageUri ? (
+                      <img src={card.template.imageUri} alt={card.template.name} />
+                    ) : '🃏'}
+                  </div>
+                  <div className="bag-card-label">
+                    ERR: {card.instance.cardTypeId}
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 右侧信息面板 */}
+        {selectedCard && (
+          <div className="bag-info-panel">
+            <div className="info-header-cyber">ITEM_INFO</div>
+            <div className="info-name-cyber">
+              {selectedCard.template?.name ?? `MK-${selectedCard.instance.cardTypeId}_UNKNOWN`}
+            </div>
+            
+            <div className="info-row-cyber">
+              <span className="info-label-cyber">RARITY:</span>
+              <span className="info-value-cyber rare">
+                {getRarityName(selectedCard.template?.rarity ?? 0)}
+              </span>
+            </div>
+            <div className="info-row-cyber">
+              <span className="info-label-cyber">TYPE:</span>
+              <span className="info-value-cyber">
+                {getTraitName(selectedCard.template?.traitType ?? 0)}
+              </span>
+            </div>
+            <div className="info-row-cyber">
+              <span className="info-label-cyber">ATK_CODE:</span>
+              <span className="info-value-cyber">{selectedCard.instance.attack}</span>
+            </div>
+            <div className="info-row-cyber">
+              <span className="info-label-cyber">HP:</span>
+              <span className="info-value-cyber">{selectedCard.instance.health}</span>
+            </div>
+
+            <div className="info-log-cyber">
+              <div className="log-title-cyber">DATA_LOG:</div>
+              <div className="log-text-cyber">
+                'Card instance found.<br/>
+                Mint: {selectedCard.instance.mint.toBase58().slice(0, 8)}...<br/>
+                Status: ACTIVE'
               </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            <button className="use-btn-cyber">USE IN BATTLE</button>
+            <button className="inspect-btn-cyber">INSPECT</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
