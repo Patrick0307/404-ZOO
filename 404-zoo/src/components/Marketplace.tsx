@@ -14,10 +14,10 @@ const mockListings = [
   { id: 6, name: 'ER-418_TEAPOT_GIANT', rarity: 'SUPER_RARE', stars: 3, price: 125, errCode: 'R888', atk: 43, hp: 122, type: 'assassin' },
 ]
 
-function Marketplace({ onBack }: MarketplaceProps) {
+function Marketplace({}: MarketplaceProps) {
   const [selectedCard, setSelectedCard] = useState(mockListings[0])
-  const [filterRarity, setFilterRarity] = useState<string[]>(['RARE'])
-  const [filterType, setFilterType] = useState('warrior')
+  const [filterRarity] = useState<string[]>(['RARE'])
+  const [filterType] = useState('warrior')
 
   return (
     <div className="marketplace-container">

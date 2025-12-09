@@ -19,7 +19,7 @@ interface TeamBuilderProps {
 const MAX_TEAM_SIZE = 10
 const MAX_DECKS = 5
 
-function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
+function TeamBuilder({ playerProfile }: TeamBuilderProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
   const [team, setTeam] = useState<(PlayerCard | null)[]>(Array(MAX_TEAM_SIZE).fill(null))
   const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)

@@ -5,7 +5,6 @@ import {
   type PlayerCard,
   type PlayerProfile,
   Rarity,
-  // RarityNames,
 } from '../services/contract'
 
 interface BackpackProps {
@@ -13,15 +12,11 @@ interface BackpackProps {
   playerProfile: PlayerProfile | null
 }
 
-function Backpack({ onBack: _onBack, playerProfile }: BackpackProps) {
+function Backpack({ playerProfile }: BackpackProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
   const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<number | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _unusedOnBack = _onBack
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_setFilter] = [setFilter]
+  const [filter] = useState<number | null>(null)
 
   useEffect(() => {
     if (playerProfile) {
