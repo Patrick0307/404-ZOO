@@ -14,7 +14,7 @@ interface PokedexProps {
   onBack: () => void
 }
 
-function Pokedex({}: PokedexProps) {
+function Pokedex() {
   const [cards, setCards] = useState<CardTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null)

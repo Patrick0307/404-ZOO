@@ -15,7 +15,7 @@ const mockPlayers = [
   { rank: 8, name: 'EarthShaker', wallet: '0x6d...4c', wins: 98, score: 2280 },
 ]
 
-function Leaderboard({}: LeaderboardProps) {
+function Leaderboard() {
   const getRankClass = (rank: number) => {
     if (rank === 1) return 'rank-top-1'
     if (rank === 2) return 'rank-top-2'
