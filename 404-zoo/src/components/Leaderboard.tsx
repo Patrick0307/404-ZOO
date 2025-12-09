@@ -1,9 +1,5 @@
 import '../css/Leaderboard.css'
 
-interface LeaderboardProps {
-  onBack: () => void
-}
-
 const mockPlayers = [
   { rank: 1, name: 'DragonMaster', wallet: '0x7a...3f', wins: 156, score: 2850 },
   { rank: 2, name: 'PhoenixKing', wallet: '0x4b...9c', wins: 142, score: 2720 },

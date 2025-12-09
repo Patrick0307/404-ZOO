@@ -40,13 +40,13 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
       case 'gacha':
         return <GachaPage onBack={() => navigate('/home')} playerProfile={playerProfile} onProfileUpdate={onProfileUpdate} />
       case 'marketplace':
-        return <Marketplace onBack={() => navigate('/home')} />
+        return <Marketplace />
       case 'pokedex':
-        return <Pokedex onBack={() => navigate('/home')} />
+        return <Pokedex />
       case 'battle':
         return <Battle onBack={() => navigate('/home')} playerProfile={playerProfile} />
       case 'leaderboard':
-        return <Leaderboard onBack={() => navigate('/home')} />
+        return <Leaderboard />
       case 'team':
         return <TeamBuilder onBack={() => navigate('/home')} playerProfile={playerProfile} />
       default:

@@ -10,10 +10,6 @@ import {
 } from '../services/contract'
 import { getCachedCards, getImageUrl } from '../services/cardCache'
 
-interface PokedexProps {
-  onBack: () => void
-}
-
 function Pokedex() {
   const [cards, setCards] = useState<CardTemplate[]>([])
   const [loading, setLoading] = useState(true)
