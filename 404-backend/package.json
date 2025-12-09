@@ -1,0 +1,15 @@
+{
+  "name": "404-battle-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for 404 Zoo battle matchmaking",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "uuid": "^9.0.1"
+  }
+}

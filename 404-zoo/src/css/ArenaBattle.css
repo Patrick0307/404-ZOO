@@ -1,0 +1,708 @@
+/* Arena 战斗容器 */
+.arena-battle-container {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+}
+
+/* 匹配界面 */
+.arena-matching-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 20px;
+}
+
+.arena-matching-screen .matching-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: arena-spin 1s linear infinite;
+}
+
+@keyframes arena-spin {
+  to { transform: rotate(360deg); }
+}
+
+.arena-matching-screen h2 {
+  color: #fff;
+  font-size: 24px;
+}
+
+.arena-matching-screen .cancel-btn {
+  padding: 10px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* 战斗界面 */
+.arena-battle-arena {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* 顶部信息栏 */
+.arena-battle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  height: 60px;
+}
+
+.arena-battle-header .player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.arena-battle-header .player-info.left {
+  align-items: flex-start;
+}
+
+.arena-battle-header .player-info.right {
+  align-items: flex-end;
+}
+
+.arena-battle-header .player-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.arena-battle-header .hp-bar {
+  width: 150px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 9px;
+  overflow: hidden;
+  position: relative;
+}
+
+.arena-battle-header .hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.5s ease;
+}
+
+.arena-battle-header .hp-fill.opponent {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.arena-battle-header .hp-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.arena-battle-header .round-info {
+  text-align: center;
+}
+
+.arena-battle-header .round-number {
+  color: #fbbf24;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.arena-battle-header .phase-indicator {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+}
+
+.arena-battle-header .result.win { color: #22c55e; }
+.arena-battle-header .result.lose { color: #ef4444; }
+.arena-battle-header .result.draw { color: #fbbf24; }
+
+/* 主战场区域 */
+.arena-battle-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  min-height: 0;
+}
+
+.arena-battle-main .battlefield {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.arena-battle-main .side-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 战场格子 - 两列三行布局 */
+.arena-battle-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arena-battle-grid .grid-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.arena-battle-grid .grid-cell {
+  width: 90px;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.arena-battle-grid .grid-pos-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  z-index: 1;
+}
+
+.arena-battle-grid .grid-cell:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.arena-battle-grid .grid-cell.occupied {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 单位卡片 - 左边星星竖排，右边图片 */
+.arena-battle-grid .unit-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  gap: 4px;
+}
+
+.arena-battle-grid .unit-card:hover {
+  transform: scale(1.05);
+}
+
+.arena-battle-grid .unit-card.star-1 { background: linear-gradient(135deg, #374151, #4b5563); }
+.arena-battle-grid .unit-card.star-2 { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+.arena-battle-grid .unit-card.star-3 { background: linear-gradient(135deg, #b45309, #f59e0b); }
+
+.arena-battle-grid .unit-card.rarity-0 { border: 2px solid #9ca3af; }
+.arena-battle-grid .unit-card.rarity-1 { border: 2px solid #3b82f6; }
+.arena-battle-grid .unit-card.rarity-2 { border: 2px solid #f59e0b; }
+
+/* 星星竖排显示（左边） */
+.arena-battle-grid .unit-stars-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.arena-battle-grid .unit-stars-vertical .star {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* 图片（右边） */
+.arena-battle-grid .unit-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.arena-battle-grid .unit-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 中间区域 */
+.arena-battle-main .battle-center {
+  flex: 1;
+  max-width: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arena-battle-main .vs-display {
+  font-size: 48px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.2);
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+.arena-battle-main .battle-log {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.arena-battle-main .log-entry {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.arena-battle-main .log-entry:last-child {
+  border-bottom: none;
+}
+
+/* 底部控制区 */
+.arena-battle-bottom {
+  flex-shrink: 0;
+  position: relative;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.arena-battle-bottom .bench-area {
+  transition: all 0.3s ease;
+}
+
+.arena-battle-bottom .bench-area.collapsed {
+  max-height: 40px;
+}
+
+.arena-battle-bottom .bench-area.expanded {
+  max-height: 280px;
+}
+
+.arena-battle-bottom .bench-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.arena-battle-bottom .toggle-icon {
+  font-size: 10px;
+}
+
+.arena-battle-bottom .bench-units {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  overflow-x: auto;
+  min-height: 80px;
+}
+
+.arena-battle-bottom .bench-unit {
+  position: relative;
+  flex-shrink: 0;
+  width: 70px;
+  height: 85px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px;
+  padding-bottom: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.arena-battle-bottom .bench-unit:hover {
+  transform: translateY(-4px);
+}
+
+.arena-battle-bottom .bench-unit.selected {
+  box-shadow: 0 0 0 3px #6366f1;
+}
+
+.arena-battle-bottom .bench-unit.star-1 { background: linear-gradient(135deg, #374151, #4b5563); }
+.arena-battle-bottom .bench-unit.star-2 { background: linear-gradient(135deg, #1e40af, #3b82f6); }
+.arena-battle-bottom .bench-unit.star-3 { background: linear-gradient(135deg, #b45309, #f59e0b); }
+
+.arena-battle-bottom .bench-unit.rarity-0 { border: 2px solid #9ca3af; }
+.arena-battle-bottom .bench-unit.rarity-1 { border: 2px solid #3b82f6; }
+.arena-battle-bottom .bench-unit.rarity-2 { border: 2px solid #f59e0b; }
+
+.arena-battle-bottom .bench-unit .unit-image {
+  width: 35px;
+  height: 35px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.arena-battle-bottom .bench-unit .unit-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.arena-battle-bottom .bench-unit .unit-stars {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.arena-battle-bottom .bench-unit .unit-name {
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60px;
+}
+
+.arena-battle-bottom .bench-unit .unit-stats {
+  display: flex;
+  gap: 4px;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 商店区域 */
+.arena-battle-bottom .shop-area {
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.arena-battle-bottom .shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.arena-battle-bottom .refresh-btn {
+  padding: 6px 12px;
+  background: rgba(99, 102, 241, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.arena-battle-bottom .refresh-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.5);
+}
+
+.arena-battle-bottom .refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.arena-battle-bottom .shop-cards {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.arena-battle-bottom .shop-card {
+  width: 100px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.arena-battle-bottom .shop-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.arena-battle-bottom .shop-card.rarity-0 { border: 2px solid #9ca3af; }
+.arena-battle-bottom .shop-card.rarity-1 { border: 2px solid #3b82f6; }
+.arena-battle-bottom .shop-card.rarity-2 { border: 2px solid #f59e0b; }
+
+.arena-battle-bottom .card-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0 auto 6px;
+}
+
+.arena-battle-bottom .card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.arena-battle-bottom .card-rarity {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+}
+
+.arena-battle-bottom .card-name {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arena-battle-bottom .card-type {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.arena-battle-bottom .card-stats {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 6px 0;
+}
+
+.arena-battle-bottom .card-price {
+  font-size: 12px;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* 商店卡牌禁用状态 */
+.arena-battle-bottom .shop-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+}
+
+.arena-battle-bottom .shop-card.disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.arena-battle-bottom .card-disabled-reason {
+  font-size: 10px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+/* 卖出按钮 */
+.arena-battle-bottom .bench-unit .sell-btn {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  font-size: 8px;
+  background: rgba(239, 68, 68, 0.8);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.arena-battle-bottom .bench-unit:hover .sell-btn {
+  opacity: 1;
+}
+
+.arena-battle-bottom .bench-unit .sell-btn:hover {
+  background: rgba(239, 68, 68, 1);
+}
+
+/* 金币显示 */
+.arena-battle-bottom .gold-display {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 2px solid rgba(251, 191, 36, 0.3);
+}
+
+.arena-battle-bottom .gold-icon {
+  font-size: 18px;
+}
+
+.arena-battle-bottom .gold-amount {
+  color: #fbbf24;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.arena-battle-bottom .streak {
+  color: #f97316;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* 退出按钮 */
+.arena-battle-arena .exit-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.arena-battle-arena .exit-btn:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+/* 游戏结束界面 */
+.arena-gameover-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 20px;
+}
+
+.arena-gameover-screen h2 {
+  font-size: 36px;
+  color: #fff;
+}
+
+.arena-gameover-screen .final-stats {
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  font-size: 16px;
+  line-height: 2;
+}
+
+.arena-gameover-screen .return-btn {
+  padding: 14px 36px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.arena-gameover-screen .return-btn:hover {
+  transform: scale(1.05);
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .arena-battle-grid .grid-cell {
+    width: 75px;
+    height: 60px;
+  }
+  
+  .arena-battle-grid .unit-name {
+    font-size: 9px;
+    max-width: 65px;
+  }
+  
+  .arena-battle-main .battle-center {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 900px) {
+  .arena-battle-grid .grid-cell {
+    width: 65px;
+    height: 55px;
+  }
+  
+  .arena-battle-bottom .bench-unit {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .arena-battle-bottom .shop-card {
+    width: 85px;
+    padding: 8px;
+  }
+  
+  .arena-battle-header .hp-bar {
+    width: 120px;
+  }
+}
+
+/* 滚动条样式 */
+.arena-battle-main .battle-log::-webkit-scrollbar,
+.arena-battle-bottom .bench-units::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.arena-battle-main .battle-log::-webkit-scrollbar-track,
+.arena-battle-bottom .bench-units::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.arena-battle-main .battle-log::-webkit-scrollbar-thumb,
+.arena-battle-bottom .bench-units::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
