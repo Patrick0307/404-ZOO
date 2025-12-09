@@ -23,7 +23,6 @@ if not exist "404-zoo\node_modules" (
 ) else (
     echo [2/4] Frontend dependencies OK
 )
-
 echo.
 echo [3/4] Starting Backend Server (port 8080)...
 start "404-Backend" cmd /k "cd 404-backend && npm start"

@@ -401,12 +401,6 @@ function getGachaDrawDiscriminator(): Buffer {
   return Buffer.from([250, 36, 118, 2, 221, 236, 213, 11])
 }
 
-// Anchor instruction discriminator for "roll_gacha"
-// sha256("global:roll_gacha")[0..8]
-function getRollGachaDiscriminator(): Buffer {
-  return Buffer.from([167, 228, 79, 227, 124, 205, 27, 55])
-}
-
 // 获取 GameConfig PDA
 export function getGameConfigPDA(): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(

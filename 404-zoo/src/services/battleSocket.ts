@@ -51,12 +51,45 @@ class BattleSocketService {
   private maxReconnectAttempts = 5
   private reconnectDelay = 2000
   private socketId: string | null = null
+  private shouldReconnect = false // 控制是否自动重连
 
   // 连接到战斗服务器
   connect(): Promise<string> {
     return new Promise((resolve, reject) => {
+      // 如果已经连接，直接返回
+      if (this.ws && this.ws.readyState === WebSocket.OPEN && this.socketId) {
+        console.log('🔌 Already connected, reusing connection')
+        resolve(this.socketId)
+        return
+      }
+      
+      // 如果正在连接中，等待连接完成
+      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        console.log('🔌 Connection in progress, waiting...')
+        const checkConnection = setInterval(() => {
+          if (this.ws?.readyState === WebSocket.OPEN && this.socketId) {
+            clearInterval(checkConnection)
+            resolve(this.socketId)
+          } else if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+            clearInterval(checkConnection)
+            // 重新尝试连接
+            this.ws = null
+            this.connect().then(resolve).catch(reject)
+          }
+        }, 100)
+        return
+      }
+      
+      // 关闭旧连接（只有 CLOSED 或 CLOSING 状态才关闭）
+      if (this.ws && this.ws.readyState !== WebSocket.CONNECTING) {
+        this.ws.onclose = null
+        this.ws.close()
+        this.ws = null
+      }
+      
       try {
         console.log(`🔌 Connecting to ${WS_SERVER_URL}...`)
+        this.shouldReconnect = true
         this.ws = new WebSocket(WS_SERVER_URL)
         
         this.ws.onopen = () => {
@@ -90,7 +123,9 @@ class BattleSocketService {
         this.ws.onclose = () => {
           console.log('🔌 Battle WebSocket closed')
           this.socketId = null
-          this.attemptReconnect()
+          if (this.shouldReconnect) {
+            this.attemptReconnect()
+          }
         }
       } catch (error) {
         reject(error)
@@ -100,7 +135,10 @@ class BattleSocketService {
 
   // 断开连接
   disconnect() {
+    this.shouldReconnect = false // 禁用自动重连
+    this.reconnectAttempts = 0
     if (this.ws) {
+      this.ws.onclose = null // 防止触发重连
       this.ws.close()
       this.ws = null
     }
@@ -170,6 +208,11 @@ class BattleSocketService {
     bench?: BattleUnitData[]
   }) {
     this.send('sync_state', state)
+  }
+
+  // 发送战斗结束
+  sendBattleEnd(result: 'win' | 'lose' | 'draw' | null, hp: number) {
+    this.send('battle_end', { result, hp })
   }
 
   // 添加消息处理器

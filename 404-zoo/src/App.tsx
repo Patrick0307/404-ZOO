@@ -9,6 +9,7 @@ import {
   type PlayerProfile,
 } from './services/contract'
 import { loadAndCacheCards } from './services/cardCache'
+import { preloadPlayerData, clearPlayerDataCache } from './services/playerDataCache'
 
 // Phantom 类型
 interface PhantomProvider {
@@ -60,6 +61,9 @@ function AppContent() {
         const profile = await getPlayerProfile(pubKey)
         setPlayerProfile(profile)
         console.log('Auto-connected:', address, 'Profile:', profile)
+        
+        // 预加载玩家卡片和卡组数据
+        preloadPlayerData(pubKey).catch(console.error)
 
         // 只有在根路径时才导航到主页，否则保持当前路径
         if (location.pathname === '/') {
@@ -96,6 +100,9 @@ function AppContent() {
     setPublicKey(pubKey)
     setIsConnected(true)
     navigate('/home')
+    
+    // 预加载玩家卡片和卡组数据
+    preloadPlayerData(pubKey).catch(console.error)
   }
 
   const handleDisconnect = async () => {
@@ -107,6 +114,7 @@ function AppContent() {
     setPublicKey(null)
     setIsConnected(false)
     setPlayerProfile(null)
+    clearPlayerDataCache() // 清除玩家数据缓存
     navigate('/')
   }
 
