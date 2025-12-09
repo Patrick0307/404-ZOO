@@ -77,6 +77,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const [playerHP, setPlayerHP] = useState(100)
   const [playerGold, setPlayerGold] = useState(10)
   const [playerWinStreak, setPlayerWinStreak] = useState(0)
+  const [maxWinStreak, setMaxWinStreak] = useState(0)
   const [playerUnits, setPlayerUnits] = useState<BattleUnit[]>([])
   const [playerBench, setPlayerBench] = useState<BattleUnit[]>([])
   
@@ -250,7 +251,11 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         
         // 更新连胜
         if (payload.result === 'win') {
-          setPlayerWinStreak(prev => prev + 1)
+          setPlayerWinStreak(prev => {
+            const newStreak = prev + 1
+            setMaxWinStreak(max => Math.max(max, newStreak))
+            return newStreak
+          })
         } else {
           setPlayerWinStreak(0)
         }
@@ -358,6 +363,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     setOpponentHP(100)
     setPlayerGold(10)
     setPlayerWinStreak(0)
+    setMaxWinStreak(0)
     setPlayerUnits([])
     setPlayerBench([])
     setOpponentUnits([])
@@ -540,12 +546,25 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
 
   // 尝试合成单位
   const tryMergeUnit = (newUnit: BattleUnit, currentGold?: number) => {
-    const updatedBench = [...playerBench, newUnit]
-    const allUnits = [...playerUnits, ...updatedBench]
+    // 先检查是否能合成（不需要额外空间）
+    const allUnits = [...playerUnits, ...playerBench]
     const sameUnits = allUnits.filter(u => u.cardTypeId === newUnit.cardTypeId && u.star === newUnit.star)
     
-    if (sameUnits.length >= 3 && newUnit.star < 3) {
-      const toRemove = sameUnits.slice(0, 3)
+    // 如果能合成（已有2个相同的），则可以继续
+    const canMerge = sameUnits.length >= 2 && newUnit.star < 3
+    
+    // 如果不能合成且备战区已满，则不添加
+    if (!canMerge && playerBench.length >= MAX_BENCH_SIZE) {
+      console.warn('备战区已满，无法添加单位')
+      return
+    }
+    
+    const updatedBench = [...playerBench, newUnit]
+    const allUnitsWithNew = [...playerUnits, ...updatedBench]
+    const sameUnitsWithNew = allUnitsWithNew.filter(u => u.cardTypeId === newUnit.cardTypeId && u.star === newUnit.star)
+    
+    if (sameUnitsWithNew.length >= 3 && newUnit.star < 3) {
+      const toRemove = sameUnitsWithNew.slice(0, 3)
       const toRemoveIds = new Set(toRemove.map(u => u.id))
       
       const baseAttack = newUnit.star === 1 ? newUnit.attack : Math.floor(newUnit.attack / newUnit.star)
@@ -570,10 +589,13 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       
       setTimeout(() => tryMergeUnit(upgradedUnit, currentGold), 100)
     } else {
-      setPlayerBench(updatedBench)
-      
-      if (wsConnected && currentGold !== undefined) {
-        battleSocket.buyCard(currentGold, updatedBench.map(toUnitData))
+      // 再次检查确保不超过限制
+      if (updatedBench.length <= MAX_BENCH_SIZE) {
+        setPlayerBench(updatedBench)
+        
+        if (wsConnected && currentGold !== undefined) {
+          battleSocket.buyCard(currentGold, updatedBench.map(toUnitData))
+        }
       }
     }
   }
@@ -897,16 +919,22 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   )
 
   // 渲染游戏结束
-  const renderGameOver = () => (
-    <div className="arena-gameover-screen">
-      <h2>{playerHP <= 0 ? '💔 游戏结束' : '🎉 胜利！'}</h2>
-      <div className="final-stats">
-        <div>坚持了 {round} 回合</div>
-        <div>最高连胜: {playerWinStreak}</div>
+  const renderGameOver = () => {
+    const isWinner = playerHP > 0
+    const trophyGain = isWinner ? 30 : 0
+    
+    return (
+      <div className="arena-gameover-screen">
+        <h2>{isWinner ? '🎉 胜利！' : '💔 游戏结束'}</h2>
+        <div className="final-stats">
+          <div>坚持了 {round} 回合</div>
+          <div>最高连胜: {maxWinStreak}</div>
+          {isWinner && <div className="trophy-gain">🏆 +{trophyGain} Trophy</div>}
+        </div>
+        <button className="return-btn" onClick={returnToLobby}>返回大厅</button>
       </div>
-      <button className="return-btn" onClick={returnToLobby}>返回大厅</button>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="arena-battle-container">

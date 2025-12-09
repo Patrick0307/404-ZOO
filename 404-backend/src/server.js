@@ -1,3 +1,4 @@
+import http from 'http'
 import { WebSocketServer } from 'ws'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -8,9 +9,22 @@ const players = new Map() // odId -> { odId, ws, name, rating, deck, status, roo
 const matchQueue = [] // 等待匹配的玩家
 const rooms = new Map() // roomId -> { id, players: [p1, p2], state }
 
-const wss = new WebSocketServer({ port: PORT })
+// 创建 HTTP 服务器（Render 健康检查需要）
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('OK')
+  } else if (req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('404-Zoo Battle Server')
+  } else {
+    res.writeHead(404)
+    res.end()
+  }
+})
 
-console.log(`🎮 Battle Server running on ws://localhost:${PORT}`)
+// WebSocket 挂载到 HTTP 服务器
+const wss = new WebSocketServer({ server })
 
 wss.on('connection', (ws) => {
   const odId = uuidv4()
@@ -761,3 +775,8 @@ setInterval(() => {
     }
   }
 }, 30000)
+
+// 启动服务器
+server.listen(PORT, () => {
+  console.log(`🎮 Battle Server running on port ${PORT}`)
+})
