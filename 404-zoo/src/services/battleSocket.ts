@@ -27,8 +27,27 @@ export interface RoundStartPayload {
 
 export interface BattleStartPayload {
   round: number
-  myUnits: BattleUnitData[]
-  opponentUnits: BattleUnitData[]
+  p1Units: BattleUnitData[]
+  p2Units: BattleUnitData[]
+}
+
+export interface BattleAttackPayload {
+  attacker: BattleUnitData & { side: 'p1' | 'p2' }
+  target: BattleUnitData & { side: 'p1' | 'p2' }
+  damage: number
+  log: string
+}
+
+export interface BattleUnitsUpdatePayload {
+  p1Units: BattleUnitData[]
+  p2Units: BattleUnitData[]
+}
+
+export interface BattleResultPayload {
+  result: 'win' | 'lose' | 'draw'
+  myHP: number
+  opponentHP: number
+  round: number
 }
 
 export interface BattleUnitData {
@@ -53,38 +72,19 @@ class BattleSocketService {
   private socketId: string | null = null
   private shouldReconnect = false // 控制是否自动重连
 
-  // 连接到战斗服务器
+  // 连接到战斗服务器（每次都创建新连接）
   connect(): Promise<string> {
     return new Promise((resolve, reject) => {
-      // 如果已经连接，直接返回
-      if (this.ws && this.ws.readyState === WebSocket.OPEN && this.socketId) {
-        console.log('🔌 Already connected, reusing connection')
-        resolve(this.socketId)
-        return
-      }
-      
-      // 如果正在连接中，等待连接完成
-      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
-        console.log('🔌 Connection in progress, waiting...')
-        const checkConnection = setInterval(() => {
-          if (this.ws?.readyState === WebSocket.OPEN && this.socketId) {
-            clearInterval(checkConnection)
-            resolve(this.socketId)
-          } else if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
-            clearInterval(checkConnection)
-            // 重新尝试连接
-            this.ws = null
-            this.connect().then(resolve).catch(reject)
-          }
-        }, 100)
-        return
-      }
-      
-      // 关闭旧连接（只有 CLOSED 或 CLOSING 状态才关闭）
-      if (this.ws && this.ws.readyState !== WebSocket.CONNECTING) {
+      // 先关闭旧连接，确保每次都是新连接
+      if (this.ws) {
+        console.log('🔌 Closing existing connection before creating new one')
         this.ws.onclose = null
+        this.ws.onerror = null
+        this.ws.onmessage = null
         this.ws.close()
         this.ws = null
+        this.socketId = null
+        this.messageHandlers.clear()
       }
       
       try {

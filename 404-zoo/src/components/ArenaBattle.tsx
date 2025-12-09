@@ -14,8 +14,10 @@ import {
   type BattleMessage,
   type MatchFoundPayload,
   type RoundStartPayload,
-  type BattleStartPayload,
   type BattleUnitData,
+  type BattleAttackPayload,
+  type BattleUnitsUpdatePayload,
+  type BattleResultPayload,
 } from '../services/battleSocket'
 
 interface ArenaBattleProps {
@@ -47,10 +49,20 @@ type RoundResult = 'win' | 'lose' | 'draw' | null
 
 // 卡牌购买价格
 const CARD_PRICES: Record<Rarity, number> = {
-  [Rarity.Common]: 2,
-  [Rarity.Rare]: 4,
-  [Rarity.Legendary]: 5,
+  [Rarity.Common]: 3,
+  [Rarity.Rare]: 5,
+  [Rarity.Legendary]: 7,
 }
+
+// 卡牌出售价格（购买价格的一半，向下取整）
+const CARD_SELL_PRICES: Record<Rarity, number> = {
+  [Rarity.Common]: 1,
+  [Rarity.Rare]: 2,
+  [Rarity.Legendary]: 3,
+}
+
+// 备战区最大容量
+const MAX_BENCH_SIZE = 9
 
 // 连胜奖励
 const WIN_STREAK_BONUS = [0, 2, 4, 6, 8, 10]
@@ -89,16 +101,19 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const wsConnectedRef = useRef(false)
   const unsubscribeRef = useRef<(() => void) | null>(null)
   
+  // 我是 P1 还是 P2
+  const [myPlayerId, setMyPlayerId] = useState<'p1' | 'p2'>('p1')
+  
   // Refs
   const selectedDeckRef = useRef(selectedDeck)
   const playerProfileRef = useRef(playerProfile)
   const playerUnitsRef = useRef<BattleUnit[]>([])
   const opponentUnitsRef = useRef<BattleUnit[]>([])
   const roundRef = useRef(round)
-  const isBattlingRef = useRef(false)
   const preBattleUnitsRef = useRef<BattleUnit[]>([])
   const playerHPRef = useRef(playerHP)
   const playerWinStreakRef = useRef(playerWinStreak)
+  const handleWSMessageRef = useRef<(message: BattleMessage) => void>(() => {})
   
   useEffect(() => { selectedDeckRef.current = selectedDeck }, [selectedDeck])
   useEffect(() => { playerWinStreakRef.current = playerWinStreak }, [playerWinStreak])
@@ -120,9 +135,13 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         break
         
       case 'match_found': {
-        const payload = message.payload as MatchFoundPayload
+        const payload = message.payload as MatchFoundPayload & { playerId?: 'p1' | 'p2' }
         console.log('🎯 Match found! Opponent:', payload.opponent.name)
         setOpponentName(payload.opponent.name)
+        // 服务器会告诉我们是 p1 还是 p2
+        if (payload.playerId) {
+          setMyPlayerId(payload.playerId)
+        }
         setGamePhase('preparation')
         initializeGame()
         break
@@ -135,14 +154,19 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       case 'round_start': {
         const payload = message.payload as RoundStartPayload
         console.log(`🔔 Round ${payload.round} starting, timer: ${payload.timer}`)
-        // 重置战斗状态
-        isBattlingRef.current = false
         setRound(payload.round)
         setTimer(payload.timer)
         setFreeRefresh(true)
         setRoundResult(null)
         setGamePhase('preparation')
-        // refreshShop 会在 preparation 阶段由 useEffect 或用户操作触发
+        
+        // 恢复单位血量
+        const savedUnits = preBattleUnitsRef.current
+        if (savedUnits.length > 0) {
+          const restoredUnits = savedUnits.map(u => ({ ...u, health: u.maxHealth }))
+          setPlayerUnits(restoredUnits)
+          playerUnitsRef.current = restoredUnits
+        }
         break
       }
       
@@ -153,17 +177,41 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       }
       
       case 'battle_start': {
-        // 防止重复执行战斗
-        if (isBattlingRef.current) {
-          console.log('⚠️ Already battling, ignoring battle_start')
-          break
-        }
-        isBattlingRef.current = true
+        console.log('⚔️ Battle starting from server')
         
-        const payload = message.payload as BattleStartPayload
+        // 保存战斗前状态
+        preBattleUnitsRef.current = playerUnitsRef.current.map(u => ({ ...u }))
+        
+        setBattleLog([])
+        setGamePhase('battle')
+        break
+      }
+      
+      case 'battle_log': {
+        // 服务器发来的战斗日志
+        const payload = message.payload as { log: string }
+        setBattleLog(prev => [...prev, payload.log])
+        break
+      }
+      
+      case 'battle_attack': {
+        // 服务器发来的攻击事件
+        const payload = message.payload as BattleAttackPayload
+        setBattleLog(prev => [...prev, payload.log])
+        break
+      }
+      
+      case 'battle_units_update': {
+        // 服务器同步单位状态
+        const payload = message.payload as BattleUnitsUpdatePayload
         ;(async () => {
           const allTemplates = await getCachedCards()
-          const oppUnits: BattleUnit[] = payload.opponentUnits.map(u => {
+          
+          // 根据我是 p1 还是 p2 来决定哪边是我方
+          const myUnitsData = myPlayerId === 'p1' ? payload.p1Units : payload.p2Units
+          const oppUnitsData = myPlayerId === 'p1' ? payload.p2Units : payload.p1Units
+          
+          const myUnits: BattleUnit[] = myUnitsData.map(u => {
             const template = allTemplates.find(t => t.cardTypeId === u.cardTypeId)
             return {
               ...u,
@@ -173,13 +221,45 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
               imageUri: template ? getImageUrl(template.imageUri) : '',
             }
           })
-          // 更新 ref 以确保战斗使用最新的对手单位
-          opponentUnitsRef.current = oppUnits
+          
+          const oppUnits: BattleUnit[] = oppUnitsData.map(u => {
+            const template = allTemplates.find(t => t.cardTypeId === u.cardTypeId)
+            return {
+              ...u,
+              maxHealth: u.maxHealth || u.health,
+              rarity: template?.rarity ?? Rarity.Common,
+              traitType: template?.traitType ?? 0,
+              imageUri: template ? getImageUrl(template.imageUri) : '',
+            }
+          })
+          
+          setPlayerUnits(myUnits)
           setOpponentUnits(oppUnits)
-          setBattleLog([])
-          setGamePhase('battle')
-          setTimeout(() => executeBattle(), 500)
         })()
+        break
+      }
+      
+      case 'battle_result': {
+        // 服务器发来的战斗结果
+        const payload = message.payload as BattleResultPayload
+        console.log('📊 Battle result:', payload)
+        
+        setPlayerHP(payload.myHP)
+        setOpponentHP(payload.opponentHP)
+        setRoundResult(payload.result)
+        
+        // 更新连胜
+        if (payload.result === 'win') {
+          setPlayerWinStreak(prev => prev + 1)
+        } else {
+          setPlayerWinStreak(0)
+        }
+        
+        // 更新金币
+        const goldGain = 5 + payload.round + (payload.result === 'win' ? WIN_STREAK_BONUS[Math.min(playerWinStreak + 1, 5)] : 4)
+        setPlayerGold(prev => prev + goldGain)
+        
+        setGamePhase('settlement')
         break
       }
       
@@ -207,23 +287,6 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         break
       }
       
-      case 'round_end': {
-        // 服务器通知回合结束，同步双方 HP
-        const payload = message.payload as { round: number, p1HP: number, p2HP: number, myHP: number, opponentHP: number }
-        console.log('📊 Round ended, syncing HP:', payload)
-        
-        // 同步双方血量（服务器会发送 myHP 和 opponentHP）
-        if (payload.myHP !== undefined) {
-          setPlayerHP(payload.myHP)
-        }
-        if (payload.opponentHP !== undefined) {
-          setOpponentHP(payload.opponentHP)
-        }
-        
-        setGamePhase('settlement')
-        break
-      }
-      
       case 'game_over': {
         const payload = message.payload as { winner: string, p1HP: number, p2HP: number }
         console.log('🏆 Game over! Winner:', payload.winner)
@@ -231,32 +294,14 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         break
       }
     }
-  }, [])
+  }, [myPlayerId, playerWinStreak])
 
-  // WebSocket 连接
-  const connectWebSocket = useCallback(async () => {
-    try {
-      await battleSocket.connect()
-      setWsConnected(true)
-      
-      battleSocket.setProfile(
-        playerProfile?.username || '玩家',
-        playerProfile?.trophies || 1000
-      )
-      
-      unsubscribeRef.current = battleSocket.onMessage(handleWSMessage)
-      
-      battleSocket.startMatching({
-        deckId: selectedDeck.deckIndex.toString(),
-        cardMints: selectedDeck.cardMints.map(m => m.toBase58()),
-      })
-      console.log('🔍 Waiting for opponent...')
-    } catch (error) {
-      console.error('WebSocket connection failed:', error)
-      alert('无法连接到服务器，请检查网络')
-      onBack()
-    }
-  }, [playerProfile, selectedDeck, handleWSMessage, onBack])
+  // 更新 ref 以便在 useEffect 中使用最新的 handler
+  useEffect(() => {
+    handleWSMessageRef.current = handleWSMessage
+  }, [handleWSMessage])
+
+
 
   // 生成对手单位（用于本地测试或服务器未提供时）
   const generateOpponentUnits = useCallback(async (currentRound: number) => {
@@ -351,14 +396,40 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     await generateOpponentUnits(1)
   }, [generateOpponentUnits])
 
-  // 组件挂载时连接 WebSocket
+  // 组件挂载时连接 WebSocket（只执行一次）
   useEffect(() => {
     let isMounted = true
     
     const init = async () => {
       await new Promise(r => setTimeout(r, 50))
       if (!isMounted) return
-      connectWebSocket()
+      
+      try {
+        await battleSocket.connect()
+        if (!isMounted) return
+        
+        setWsConnected(true)
+        
+        battleSocket.setProfile(
+          playerProfileRef.current?.username || '玩家',
+          playerProfileRef.current?.trophies || 1000
+        )
+        
+        unsubscribeRef.current = battleSocket.onMessage((message) => {
+          // 使用 ref 获取最新值，避免闭包问题
+          handleWSMessageRef.current(message)
+        })
+        
+        battleSocket.startMatching({
+          deckId: selectedDeckRef.current.deckIndex.toString(),
+          cardMints: selectedDeckRef.current.cardMints.map(m => m.toBase58()),
+        })
+        console.log('🔍 Waiting for opponent...')
+      } catch (error) {
+        console.error('WebSocket connection failed:', error)
+        alert('无法连接到服务器，请检查网络')
+        onBack()
+      }
     }
     
     init()
@@ -372,7 +443,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       battleSocket.cancelMatching()
       battleSocket.disconnect()
     }
-  }, [connectWebSocket])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 只在挂载时执行一次
 
   // 刷新商店
   const refreshShop = () => {
@@ -393,14 +465,36 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     position: unit.position,
   })
 
+  // 检查购买某张卡后是否能触发合成
+  const canMergeAfterBuy = (cardTypeId: number): boolean => {
+    const allUnits = [...playerUnits, ...playerBench]
+    const sameUnits = allUnits.filter(u => u.cardTypeId === cardTypeId && u.star === 1)
+    // 如果已有2张相同的1星卡，买第3张可以合成
+    return sameUnits.length >= 2
+  }
+
+  // 检查是否可以购买某张卡
+  const canBuyCard = (cardData: PlayerCardData): boolean => {
+    const { template } = cardData
+    if (!template) return false
+    
+    const price = CARD_PRICES[template.rarity as Rarity]
+    if (playerGold < price) return false
+    
+    // 如果备战区未满，可以买
+    if (playerBench.length < MAX_BENCH_SIZE) return true
+    
+    // 备战区满了，只有能触发合成才能买
+    return canMergeAfterBuy(template.cardTypeId)
+  }
+
   // 购买卡牌
   const buyCard = (cardData: PlayerCardData) => {
     const { instance, template } = cardData
     if (!template) return
+    if (!canBuyCard(cardData)) return
     
     const price = CARD_PRICES[template.rarity as Rarity]
-    if (playerGold < price) return
-    
     const newGold = playerGold - price
     setPlayerGold(newGold)
     
@@ -422,6 +516,27 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     refreshShop()
   }
 
+  // 卖出单位
+  const sellUnit = (unit: BattleUnit) => {
+    // 计算卖出价格（星级越高价格越高）
+    const basePrice = CARD_SELL_PRICES[unit.rarity as Rarity]
+    const sellPrice = basePrice * unit.star
+    
+    // 从备战区移除
+    const newBench = playerBench.filter(u => u.id !== unit.id)
+    setPlayerBench(newBench)
+    
+    // 增加金币
+    setPlayerGold(prev => prev + sellPrice)
+    
+    // 同步给服务器
+    if (wsConnected) {
+      battleSocket.sendAction('sell_unit', { 
+        bench: newBench.map(toUnitData),
+        gold: playerGold + sellPrice 
+      })
+    }
+  }
 
   // 尝试合成单位
   const tryMergeUnit = (newUnit: BattleUnit, currentGold?: number) => {
@@ -498,8 +613,16 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     }
   }
 
+  // 检查是否可以移回备战区
+  const canRemoveFromField = (): boolean => {
+    return playerBench.length < MAX_BENCH_SIZE
+  }
+
   // 移回备战区
   const removeFromField = (unit: BattleUnit) => {
+    // 备战区满了不能移回
+    if (!canRemoveFromField()) return
+    
     const newUnits = playerUnits.filter(u => u.id !== unit.id)
     const newBench = [...playerBench, { ...unit, position: null }]
     
@@ -511,286 +634,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     }
   }
 
-  // 根据职业选择攻击目标
-  const selectAttackTarget = (attacker: BattleUnit, enemies: BattleUnit[]): BattleUnit | null => {
-    const aliveEnemies = enemies.filter(e => e.health > 0)
-    if (aliveEnemies.length === 0) return null
-    
-    const attackerPos = attacker.position ?? 0
-    const traitType = attacker.traitType
-    
-    // Warrior(0): 对位优先，对位死亡则按编号从小到大
-    if (traitType === 0) {
-      const opposite = aliveEnemies.find(e => e.position === attackerPos)
-      if (opposite) return opposite
-      return [...aliveEnemies].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
-    }
-    
-    // Archer(1): 优先后排(3-5)，按距离排序
-    if (traitType === 1) {
-      const backRow = aliveEnemies.filter(e => (e.position ?? 0) >= 3)
-      if (backRow.length > 0) {
-        return [...backRow].sort((a, b) => 
-          Math.abs((a.position ?? 0) - attackerPos) - Math.abs((b.position ?? 0) - attackerPos)
-        )[0]
-      }
-      const frontRow = aliveEnemies.filter(e => (e.position ?? 0) < 3)
-      if (frontRow.length > 0) {
-        return [...frontRow].sort((a, b) => 
-          Math.abs((a.position ?? 0) - attackerPos) - Math.abs((b.position ?? 0) - attackerPos)
-        )[0]
-      }
-      return aliveEnemies[0]
-    }
-    
-    // Assassin(2): 攻击攻击力最高的
-    if (traitType === 2) {
-      const maxAttack = Math.max(...aliveEnemies.map(e => e.attack))
-      const highest = aliveEnemies.filter(e => e.attack === maxAttack)
-      return highest[Math.floor(Math.random() * highest.length)]
-    }
-    
-    // 默认：对位优先
-    const opposite = aliveEnemies.find(e => e.position === attackerPos)
-    if (opposite) return opposite
-    return [...aliveEnemies].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
-  }
 
-  // 获取职业名称
-  const getTraitName = (traitType: number): string => {
-    const names: Record<number, string> = { 0: '战士', 1: '射手', 2: '刺客' }
-    return names[traitType] || '单位'
-  }
-
-  // 获取目标描述
-  const getTargetDesc = (attacker: BattleUnit, target: BattleUnit): string => {
-    const traitType = attacker.traitType
-    const targetPos = target.position ?? 0
-    if (traitType === 0) return targetPos === (attacker.position ?? 0) ? '对位' : '顺位'
-    if (traitType === 1) return targetPos >= 3 ? '后排' : '前排'
-    if (traitType === 2) return '高攻'
-    return '对位'
-  }
-
-  // 开始战斗
-  const startBattle = () => {
-    if (isBattlingRef.current) return
-    isBattlingRef.current = true
-    
-    setGamePhase('battle')
-    setBattleLog([])
-    
-    setTimeout(() => executeBattle(), 500)
-  }
-
-
-  // 执行战斗 - 按位置 0→5 循环，每秒攻击一次
-  const executeBattle = async () => {
-    const currentPlayerUnits = playerUnitsRef.current
-    const currentOpponentUnits = opponentUnitsRef.current
-    
-    // 保存战斗前状态
-    preBattleUnitsRef.current = currentPlayerUnits.map(u => ({ ...u }))
-    
-    const myUnits = currentPlayerUnits.filter(u => u.position !== null).map(u => ({ ...u }))
-    const enemyUnits = currentOpponentUnits.map(u => ({ ...u }))
-    const logs: string[] = []
-    
-    const currentRound = roundRef.current
-    logs.push(`⚔️ 第 ${currentRound} 回合战斗开始！`)
-    logs.push(`我方 ${myUnits.length} 单位 vs 敌方 ${enemyUnits.length} 单位`)
-    
-    setBattleLog([...logs])
-    await new Promise(r => setTimeout(r, 1000))
-    
-    let turnCount = 0
-    const maxTurns = 100
-    
-    // 战斗循环
-    while (turnCount < maxTurns) {
-      turnCount++
-      
-      const myAlive = myUnits.filter(u => u.health > 0).length
-      const enemyAlive = enemyUnits.filter(u => u.health > 0).length
-      
-      if (enemyAlive === 0) {
-        logs.push('🎉 敌方全军覆没！')
-        setBattleLog([...logs])
-        break
-      }
-      if (myAlive === 0) {
-        logs.push('💔 我方全军覆没...')
-        setBattleLog([...logs])
-        break
-      }
-      
-      logs.push(`--- 第 ${turnCount} 轮 ---`)
-      setBattleLog([...logs])
-      
-      // 按位置 0→5 循环攻击
-      for (let pos = 0; pos < 6; pos++) {
-        // 我方攻击
-        const myUnit = myUnits.find(u => u.position === pos && u.health > 0)
-        if (myUnit) {
-          const target = selectAttackTarget(myUnit, enemyUnits)
-          if (target) {
-            target.health -= myUnit.attack
-            const traitName = getTraitName(myUnit.traitType)
-            const targetDesc = getTargetDesc(myUnit, target)
-            logs.push(`[${traitName}] ${myUnit.name}⭐${myUnit.star} → ${target.name}(${targetDesc}) -${myUnit.attack} HP (剩余: ${Math.max(0, target.health)})`)
-            
-            if (target.health <= 0) {
-              logs.push(`💀 敌方 ${target.name} 阵亡！`)
-            }
-            
-            setPlayerUnits(myUnits.map(u => ({ ...u })))
-            setOpponentUnits(enemyUnits.map(u => ({ ...u })))
-            setBattleLog([...logs])
-            await new Promise(r => setTimeout(r, 1000)) // 1秒间隔
-            
-            if (!enemyUnits.some(u => u.health > 0)) break
-          }
-        }
-        
-        // 敌方攻击
-        const enemyUnit = enemyUnits.find(u => u.position === pos && u.health > 0)
-        if (enemyUnit) {
-          const target = selectAttackTarget(enemyUnit, myUnits)
-          if (target) {
-            target.health -= enemyUnit.attack
-            const traitName = getTraitName(enemyUnit.traitType)
-            const targetDesc = getTargetDesc(enemyUnit, target)
-            logs.push(`[${traitName}] ${enemyUnit.name} → ${target.name}⭐${target.star}(${targetDesc}) -${enemyUnit.attack} HP (剩余: ${Math.max(0, target.health)})`)
-            
-            if (target.health <= 0) {
-              logs.push(`💀 我方 ${target.name}⭐${target.star} 阵亡！`)
-            }
-            
-            setPlayerUnits(myUnits.map(u => ({ ...u })))
-            setOpponentUnits(enemyUnits.map(u => ({ ...u })))
-            setBattleLog([...logs])
-            await new Promise(r => setTimeout(r, 1000)) // 1秒间隔
-            
-            if (!myUnits.some(u => u.health > 0)) break
-          }
-        }
-        
-        if (!enemyUnits.some(u => u.health > 0) || !myUnits.some(u => u.health > 0)) break
-      }
-    }
-    
-    // 结算
-    const myAlive = myUnits.filter(u => u.health > 0).length
-    const enemyAlive = enemyUnits.filter(u => u.health > 0).length
-    
-    let result: RoundResult
-    if (enemyAlive === 0 && myAlive > 0) {
-      result = 'win'
-      logs.push(`🎉 胜利！我方剩余 ${myAlive} 单位`)
-    } else if (myAlive === 0 && enemyAlive > 0) {
-      result = 'lose'
-      logs.push(`💔 失败... 敌方剩余 ${enemyAlive} 单位`)
-    } else if (myAlive === 0 && enemyAlive === 0) {
-      result = 'draw'
-      logs.push('🤝 同归于尽，平局')
-    } else {
-      result = myAlive > enemyAlive ? 'win' : myAlive < enemyAlive ? 'lose' : 'draw'
-      logs.push(`⏰ 回合数耗尽`)
-    }
-    
-    setBattleLog([...logs])
-    setRoundResult(result)
-    
-    setTimeout(() => settleRound(result), 2000)
-  }
-
-  // 结算回合 - 发送给服务器，等待服务器同步下一回合
-  const settleRound = (result: RoundResult) => {
-    setGamePhase('settlement')
-    setRoundResult(result)
-    
-    const currentRound = roundRef.current
-    let goldGain = 5 + currentRound
-    let hpLoss = 0
-    
-    if (result === 'win') {
-      const newStreak = playerWinStreakRef.current + 1
-      setPlayerWinStreak(newStreak)
-      playerWinStreakRef.current = newStreak
-      goldGain += WIN_STREAK_BONUS[Math.min(newStreak, 5)]
-    } else if (result === 'lose') {
-      setPlayerWinStreak(0)
-      playerWinStreakRef.current = 0
-      hpLoss = currentRound * currentRound // 输了扣血 = round²
-      goldGain += 4
-    } else {
-      hpLoss = Math.floor(currentRound * currentRound / 2)
-    }
-    
-    setPlayerGold(prev => prev + goldGain)
-    
-    const currentHP = playerHPRef.current
-    const newHP = Math.max(0, currentHP - hpLoss)
-    if (hpLoss > 0) setPlayerHP(newHP)
-    
-    // 使用 ref 检查连接状态，避免闭包问题
-    const isConnected = wsConnectedRef.current
-    console.log('🔍 settleRound called, wsConnected:', isConnected, 'result:', result, 'newHP:', newHP)
-    
-    // 发送战斗结束给服务器，等待服务器同步
-    if (isConnected) {
-      battleSocket.sendBattleEnd(result, newHP)
-      console.log('📤 Sent battle_end to server, waiting for sync...')
-      
-      // 恢复单位（本地先恢复，等服务器同步下一回合）
-      const savedUnits = preBattleUnitsRef.current
-      if (savedUnits.length > 0) {
-        const restoredUnits = savedUnits.map(u => ({ ...u, health: u.maxHealth }))
-        setPlayerUnits(restoredUnits)
-        playerUnitsRef.current = restoredUnits
-      }
-      
-      isBattlingRef.current = false
-      // 保持 roundResult 显示，等服务器的 round_start 来重置
-      // 不要自己开始下一回合，等服务器的 round_start
-    } else {
-      // 离线模式：本地处理
-      console.log('⚠️ Offline mode, handling locally')
-      // 玩家生命归 0
-      if (newHP <= 0) {
-        setTimeout(() => {
-          isBattlingRef.current = false
-          setGamePhase('gameover')
-        }, 1500)
-        return
-      }
-      
-      // 继续下一回合（离线模式）
-      setTimeout(() => {
-        const nextRound = currentRound + 1
-        
-        // 恢复单位
-        const savedUnits = preBattleUnitsRef.current
-        if (savedUnits.length > 0) {
-          const restoredUnits = savedUnits.map(u => ({ ...u, health: u.maxHealth }))
-          setPlayerUnits(restoredUnits)
-          playerUnitsRef.current = restoredUnits
-        }
-        
-        // 生成新对手
-        generateOpponentUnits(nextRound)
-        
-        // 重置状态
-        isBattlingRef.current = false
-        setRound(nextRound)
-        setFreeRefresh(true)
-        setRoundResult(null)
-        refreshShop()
-        setTimer(30)
-        setGamePhase('preparation')
-      }, 2000)
-    }
-  }
 
   // 返回大厅
   const returnToLobby = () => {
@@ -811,25 +655,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     }
   }, [round, gamePhase, deckCards.length])
 
-  // 倒计时 - 只在离线模式下本地倒计时，在线模式完全依赖服务器
-  useEffect(() => {
-    if (gamePhase !== 'preparation') return
-    // 在线模式：不使用本地倒计时，完全依赖服务器的 timer_update 和 battle_start
-    if (wsConnected) return
-    
-    // 离线模式：本地倒计时
-    const interval = setInterval(() => {
-      setTimer(prev => {
-        if (prev <= 1) {
-          startBattle()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    
-    return () => clearInterval(interval)
-  }, [gamePhase, wsConnected])
+  // 倒计时 - 完全依赖服务器的 timer_update 和 battle_start
+  // 不再有离线模式，必须连接服务器才能战斗
 
 
   // 渲染匹配中
@@ -992,6 +819,17 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                       <span>⚔️{unit.attack}</span>
                       <span>❤️{unit.health}</span>
                     </div>
+                    {gamePhase === 'preparation' && (
+                      <button
+                        className="sell-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          sellUnit(unit)
+                        }}
+                      >
+                        卖出 💰{CARD_SELL_PRICES[unit.rarity as Rarity] * unit.star}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1013,11 +851,12 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                     {shopCards.map((cardData, i) => {
                       const { instance, template } = cardData
                       if (!template) return null
+                      const canBuy = canBuyCard(cardData)
                       return (
                         <div
                           key={i}
-                          className={`shop-card rarity-${template.rarity}`}
-                          onClick={() => buyCard(cardData)}
+                          className={`shop-card rarity-${template.rarity} ${!canBuy ? 'disabled' : ''}`}
+                          onClick={() => canBuy && buyCard(cardData)}
                         >
                           {template.imageUri && (
                             <div className="card-image">
@@ -1031,6 +870,9 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                             <span>❤️{instance.health}</span>
                           </div>
                           <div className="card-price">💰 {CARD_PRICES[template.rarity as Rarity]}</div>
+                          {!canBuy && playerBench.length >= MAX_BENCH_SIZE && (
+                            <div className="card-disabled-reason">备战区已满</div>
+                          )}
                         </div>
                       )
                     })}
