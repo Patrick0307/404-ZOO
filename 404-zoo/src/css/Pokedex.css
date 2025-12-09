@@ -1,114 +1,176 @@
-.pokedex-stats {
+.pokedex-container {
+  width: 100%;
+  height: 100%;
   display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
+  flex-direction: column;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  padding: 20px 40px;
 }
 
-.stat-box {
+.pokedex-title {
+  font-size: 24px;
+  color: #00ffff;
+  margin-bottom: 30px;
+  text-shadow: 0 0 10px #00ffff;
+}
+
+.pokedex-stats-cyber {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.stat-box-cyber {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  padding: 16px 32px;
+  background: rgba(0, 255, 255, 0.05);
+  border: 2px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
 }
 
-.stat-box .value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--secondary-color);
+.stat-box-cyber .value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 10px #00ffff;
 }
 
-.stat-box .label {
-  font-size: 12px;
-  color: var(--text-secondary);
+.stat-box-cyber .label {
+  font-size: 14px;
+  color: rgba(0, 255, 255, 0.6);
+  margin-top: 4px;
 }
 
-.pokedex-grid {
+.pokedex-grid-cyber {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, 180px);
+  gap: 20px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 10px;
+  justify-content: start;
 }
 
-.pokedex-card {
+.pokedex-grid-cyber::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pokedex-grid-cyber::-webkit-scrollbar-track {
+  background: rgba(0, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.pokedex-grid-cyber::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.pokedex-grid-cyber::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.5);
+}
+
+.pokedex-card-cyber {
   position: relative;
-  background: var(--bg-darker);
-  border-radius: 12px;
-  border: 2px solid var(--border-color);
-  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  border: 3px solid #ff3366;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   transition: all 0.3s ease;
   cursor: pointer;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+  width: 180px;
+  height: 280px;
 }
 
-.pokedex-card.owned {
-  border-color: var(--primary-color);
-}
-
-.pokedex-card.locked {
-  opacity: 0.5;
-  filter: grayscale(1);
-}
-
-.pokedex-card:hover:not(.locked) {
+.pokedex-card-cyber:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: #ff3366;
+  box-shadow: 0 0 25px rgba(255, 51, 102, 0.6);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px var(--shadow-color);
 }
 
+.pokedex-card-cyber.rarity-legendary {
+  border-color: #ff9800;
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+}
 
+.pokedex-card-cyber.rarity-legendary:hover {
+  border-color: #ff9800;
+  box-shadow: 0 0 25px rgba(255, 152, 0, 0.6);
+}
 
-.pokedex-avatar {
-  width: 72px;
-  height: 72px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+.pokedex-card-cyber.rarity-rare {
+  border-color: #2196f3;
+  box-shadow: 0 0 15px rgba(33, 150, 243, 0.3);
+}
+
+.pokedex-card-cyber.rarity-rare:hover {
+  border-color: #2196f3;
+  box-shadow: 0 0 25px rgba(33, 150, 243, 0.6);
+}
+
+.card-stars {
+  font-size: 16px;
+  text-shadow: 0 0 10px currentColor;
+  letter-spacing: 2px;
+  height: 20px;
+}
+
+.pokedex-avatar-cyber {
+  width: 100%;
+  height: 150px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 48px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
-.pokedex-avatar img {
+.pokedex-avatar-cyber img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.pokedex-avatar .fallback-icon {
-  font-size: 32px;
+.pokedex-avatar-cyber .fallback-icon {
+  font-size: 56px;
 }
 
-.pokedex-card.locked .pokedex-avatar {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.pokedex-card.locked .pokedex-avatar::after {
-  content: '🔒';
-  font-size: 20px;
-}
-
-.pokedex-name {
-  font-size: 12px;
+.pokedex-name-cyber {
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #00ffff;
   text-align: center;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  height: 20px;
 }
 
-.pokedex-card.locked .pokedex-name {
-  color: var(--text-secondary);
-}
-
-.pokedex-rarity {
-  font-size: 11px;
-  font-weight: 500;
+.pokedex-error-code {
+  font-size: 16px;
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 12px #00ffff;
+  letter-spacing: 2px;
+  height: 20px;
+  margin-top: auto;
 }
 
 /* Loading & Empty States */
-.loading-container {
+.loading-container-cyber {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -117,11 +179,11 @@
   gap: 16px;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--primary-color);
+.loading-spinner-cyber {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(0, 255, 255, 0.2);
+  border-top-color: #00ffff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -130,20 +192,27 @@
   to { transform: rotate(360deg); }
 }
 
-.empty-state {
+.loading-container-cyber p {
+  color: #00ffff;
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.empty-state-cyber {
   text-align: center;
   padding: 48px;
-  color: var(--text-secondary);
+  color: rgba(0, 255, 255, 0.6);
+  font-size: 18px;
 }
 
 /* Card Modal */
-.card-modal-overlay {
+.card-modal-overlay-cyber {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -151,15 +220,17 @@
   padding: 20px;
 }
 
-.card-modal {
-  background: var(--bg-darker);
-  border-radius: 16px;
-  max-width: 400px;
+.card-modal-cyber {
+  background: rgba(0, 20, 30, 0.95);
+  border: 2px solid #00ffff;
+  border-radius: 8px;
+  max-width: 450px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
   animation: modalSlideIn 0.3s ease;
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
 }
 
 @keyframes modalSlideIn {
@@ -173,134 +244,506 @@
   }
 }
 
-.modal-close {
+.modal-close-cyber {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border-radius: 50%;
-  font-size: 20px;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+  color: #00ffff;
+  border-radius: 4px;
+  font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: all 0.3s;
   z-index: 1;
+  font-family: 'PixelGame', 'Courier New', monospace;
 }
 
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+.modal-close-cyber:hover {
+  background: rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
 }
 
-.modal-header {
-  padding: 24px;
+.modal-header-cyber {
+  padding: 30px 24px 20px;
   text-align: center;
-  border-bottom: 2px solid;
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 2px solid rgba(0, 255, 255, 0.3);
 }
 
-
-
-.modal-name {
-  font-size: 24px;
+.modal-name-cyber {
+  font-size: 26px;
   font-weight: 700;
   margin: 8px 0;
-  color: var(--text-primary);
+  color: #00ffff;
+  text-shadow: 0 0 12px #00ffff;
 }
 
-.modal-rarity {
-  font-size: 14px;
+.modal-rarity-cyber {
+  font-size: 16px;
   font-weight: 600;
 }
 
-.modal-avatar {
-  width: 180px;
-  height: 180px;
-  margin: 24px auto;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+.modal-avatar-cyber {
+  width: 200px;
+  height: 200px;
+  margin: 30px auto;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 64px;
+  font-size: 80px;
   overflow: hidden;
 }
 
-.modal-avatar img {
+.modal-avatar-cyber img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.modal-avatar .fallback-icon {
-  font-size: 72px;
+.modal-avatar-cyber .fallback-icon {
+  font-size: 90px;
 }
 
-.modal-info {
-  padding: 0 24px 24px;
+.modal-info-cyber {
+  padding: 0 24px 30px;
 }
 
-.info-row {
+.info-row-cyber {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.2);
 }
 
-.info-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.info-value {
+.info-label-cyber {
   font-size: 14px;
+  color: rgba(0, 255, 255, 0.6);
+}
+
+.info-value-cyber {
+  font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #00ffff;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
 }
 
-.info-value.stats {
-  font-family: monospace;
-  color: var(--secondary-color);
+.info-value-cyber.stats {
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #ff3366;
+  text-shadow: 0 0 8px rgba(255, 51, 102, 0.5);
 }
 
-.info-value.uri {
-  font-size: 11px;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
+.info-description-cyber {
+  margin-top: 20px;
 }
 
-.info-description {
-  margin-top: 16px;
+.info-description-cyber .info-label-cyber {
+  display: block;
+  margin-bottom: 10px;
 }
 
-.info-description p {
-  margin-top: 8px;
+.info-description-cyber p {
   font-size: 14px;
+  line-height: 1.8;
+  color: rgba(0, 255, 255, 0.8);
+}
+
+/* MTG-Style Card Modal */
+.card-modal-overlay-mtg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.mtg-card {
+  position: relative;
+  width: 420px;
+  height: 680px;
+  perspective: 1000px;
+  animation: cardAppear 0.5s ease;
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8) rotateY(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
+.mtg-card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.mtg-border {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 
+    0 0 40px rgba(0, 200, 255, 0.8),
+    0 0 80px rgba(0, 200, 255, 0.5),
+    inset 0 0 30px rgba(0, 200, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+  animation: borderGlow 3s ease-in-out infinite;
+  border: 3px solid rgba(0, 200, 255, 0.6);
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    box-shadow: 
+      0 0 40px rgba(0, 200, 255, 0.8),
+      0 0 80px rgba(0, 200, 255, 0.5),
+      inset 0 0 30px rgba(0, 200, 255, 0.15);
+    border-color: rgba(0, 200, 255, 0.6);
+  }
+  50% {
+    box-shadow: 
+      0 0 60px rgba(0, 200, 255, 1),
+      0 0 120px rgba(0, 200, 255, 0.7),
+      inset 0 0 40px rgba(0, 200, 255, 0.25);
+    border-color: rgba(0, 200, 255, 0.9);
+  }
+}
+
+.mtg-border.rarity-legendary {
+  background: linear-gradient(135deg, #1a0a0a 0%, #2a1010 50%, #1f0808 100%);
+  box-shadow: 
+    0 0 40px rgba(255, 152, 0, 0.8),
+    0 0 80px rgba(255, 152, 0, 0.5),
+    inset 0 0 30px rgba(255, 152, 0, 0.15);
+  animation: borderGlowLegendary 3s ease-in-out infinite;
+  border: 3px solid rgba(255, 152, 0, 0.6);
+}
+
+@keyframes borderGlowLegendary {
+  0%, 100% {
+    box-shadow: 
+      0 0 40px rgba(255, 152, 0, 0.8),
+      0 0 80px rgba(255, 152, 0, 0.5),
+      inset 0 0 30px rgba(255, 152, 0, 0.15);
+    border-color: rgba(255, 152, 0, 0.6);
+  }
+  50% {
+    box-shadow: 
+      0 0 60px rgba(255, 152, 0, 1),
+      0 0 120px rgba(255, 152, 0, 0.7),
+      inset 0 0 40px rgba(255, 152, 0, 0.25);
+    border-color: rgba(255, 152, 0, 0.9);
+  }
+}
+
+.mtg-border.rarity-rare {
+  background: linear-gradient(135deg, #0a0a1a 0%, #10102a 50%, #08081f 100%);
+  box-shadow: 
+    0 0 40px rgba(33, 150, 243, 0.8),
+    0 0 80px rgba(33, 150, 243, 0.5),
+    inset 0 0 30px rgba(33, 150, 243, 0.15);
+  animation: borderGlowRare 3s ease-in-out infinite;
+  border: 3px solid rgba(33, 150, 243, 0.6);
+}
+
+@keyframes borderGlowRare {
+  0%, 100% {
+    box-shadow: 
+      0 0 40px rgba(33, 150, 243, 0.8),
+      0 0 80px rgba(33, 150, 243, 0.5),
+      inset 0 0 30px rgba(33, 150, 243, 0.15);
+    border-color: rgba(33, 150, 243, 0.6);
+  }
+  50% {
+    box-shadow: 
+      0 0 60px rgba(33, 150, 243, 1),
+      0 0 120px rgba(33, 150, 243, 0.7),
+      inset 0 0 40px rgba(33, 150, 243, 0.25);
+    border-color: rgba(33, 150, 243, 0.9);
+  }
+}
+
+/* Sparkle Effect */
+.mtg-border::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 70%
+  );
+  animation: sparkle 4s linear infinite;
+}
+
+@keyframes sparkle {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+.mtg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(0, 200, 255, 0.15), rgba(0, 150, 200, 0.2));
+  border: 2px solid rgba(0, 200, 255, 0.6);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+}
+
+.mtg-name-box {
+  flex: 1;
+}
+
+.mtg-card-name {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 26px;
+  font-weight: normal;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.mtg-cost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+.cost-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.cost-icon {
+  font-size: 16px;
+}
+
+.mtg-image-frame {
+  background: #000000;
+  border: 3px solid rgba(0, 200, 255, 0.5);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 12px;
+  box-shadow: 
+    inset 0 0 30px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(0, 200, 255, 0.3);
+}
+
+.mtg-image-container {
+  width: 100%;
+  height: 240px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mtg-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mtg-fallback-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(0, 200, 255, 0.1), transparent);
+}
+
+.fallback-icon-large {
+  font-size: 100px;
+  filter: drop-shadow(0 0 20px rgba(0, 200, 255, 0.5));
+}
+
+.mtg-type-section {
+  margin-bottom: 12px;
+}
+
+.mtg-type-line {
+  background: linear-gradient(135deg, rgba(0, 200, 255, 0.1), rgba(0, 150, 200, 0.15));
+  border: 2px solid rgba(0, 200, 255, 0.5);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.2);
+}
+
+.mtg-type-text {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 16px;
+  font-style: normal;
+  color: #e0e0e0;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.5px;
+}
+
+.mtg-stats-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(0, 200, 255, 0.5);
+  border-radius: 8px;
+  padding: 8px 16px;
+  box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
+}
+
+.mtg-stats-box .stat-label {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.mtg-stats-box .stat-value {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.mtg-stats-box .stat-separator {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 4px;
+}
+
+.mtg-text-box {
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(30, 30, 30, 0.9));
+  border: 2px solid rgba(0, 200, 255, 0.4);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  min-height: 120px;
+  max-height: 180px;
+  overflow: hidden;
+  box-shadow: 
+    inset 0 2px 8px rgba(0, 0, 0, 0.5),
+    0 0 10px rgba(0, 200, 255, 0.2);
+}
+
+.mtg-description {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #00ffff;
+  margin: 0 0 10px 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+}
+
+.mtg-flavor-text {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 13px;
   line-height: 1.6;
-  color: var(--text-primary);
+  color: rgba(0, 255, 255, 0.6);
+  border-top: 1px solid rgba(0, 200, 255, 0.3);
+  padding-top: 8px;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
 }
 
-/* Rarity-specific card styles */
-.pokedex-card.rarity-common {
-  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(158, 158, 158, 0.1) 100%);
+
+
+.mtg-bottom-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 8px;
+  padding: 8px 0;
 }
 
-.pokedex-card.rarity-rare {
-  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(33, 150, 243, 0.1) 100%);
+.mtg-set-info {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-weight: normal;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  letter-spacing: 1px;
 }
 
-.pokedex-card.rarity-epic {
-  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(156, 39, 176, 0.1) 100%);
+.mtg-rarity-symbol {
+  font-size: 14px;
+  text-shadow: 0 0 8px currentColor;
 }
 
-.pokedex-card.rarity-legendary {
-  background: linear-gradient(135deg, var(--bg-darker) 0%, rgba(255, 152, 0, 0.15) 100%);
+.mtg-card-number {
+  font-family: 'Courier New', monospace;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.mtg-close-btn {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 200, 255, 0.8);
+  background: rgba(0, 0, 0, 0.9);
+  color: #00ffff;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  z-index: 10;
+  font-weight: bold;
+  box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+}
+
+.mtg-close-btn:hover {
+  background: rgba(0, 200, 255, 0.2);
+  box-shadow: 0 0 30px rgba(0, 200, 255, 0.8);
+  transform: rotate(90deg);
 }

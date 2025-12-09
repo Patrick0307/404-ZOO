@@ -21,7 +21,8 @@ const MAX_DECKS = 5
 
 function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
-  const [team, setTeam] = useState<PlayerCard[]>([])
+  const [team, setTeam] = useState<(PlayerCard | null)[]>(Array(MAX_TEAM_SIZE).fill(null))
+  const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)
   const [savedDecks, setSavedDecks] = useState<PlayerDeck[]>([])
   const [selectedDeckIndex, setSelectedDeckIndex] = useState<number | null>(null)
   const [deckName, setDeckName] = useState('')
@@ -42,6 +43,9 @@ function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
     try {
       const playerCards = await getPlayerCardsWithTemplates(playerProfile.wallet)
       setCards(playerCards)
+      if (playerCards.length > 0 && !selectedCard) {
+        setSelectedCard(playerCards[0])
+      }
     } catch (error) {
       console.error('Failed to load cards:', error)
     }
@@ -59,29 +63,40 @@ function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
   }
 
   const isCardInTeam = (card: PlayerCard) => {
-    return team.some(t => t.instance.mint.toBase58() === card.instance.mint.toBase58())
+    return team.some(t => t && t.instance.mint.toBase58() === card.instance.mint.toBase58())
   }
 
-  const addToTeam = (card: PlayerCard) => {
-    if (team.length >= MAX_TEAM_SIZE) return
-    if (isCardInTeam(card)) return
-    setTeam([...team, card])
+  const addToTeam = () => {
+    if (!selectedCard) return
+    const emptyIndex = team.findIndex(slot => slot === null)
+    if (emptyIndex === -1) return
+    if (isCardInTeam(selectedCard)) return
+    
+    const newTeam = [...team]
+    newTeam[emptyIndex] = selectedCard
+    setTeam(newTeam)
   }
 
-  const removeFromTeam = (card: PlayerCard) => {
-    setTeam(team.filter(t => t.instance.mint.toBase58() !== card.instance.mint.toBase58()))
+  const removeFromTeam = (index: number) => {
+    const newTeam = [...team]
+    newTeam[index] = null
+    setTeam(newTeam)
   }
 
   const handleSaveDeck = async () => {
-    if (!playerProfile || team.length === 0) return
+    if (!playerProfile) return
+    const teamCards = team.filter((c): c is PlayerCard => c !== null)
+    if (teamCards.length === 0) {
+      alert('Please add cards to your team first')
+      return
+    }
     if (!deckName.trim()) {
-      alert('请输入卡组名称')
+      alert('Please enter a deck name')
       return
     }
 
     setIsSaving(true)
     try {
-      // 找到下一个可用的卡组索引
       const usedIndices = savedDecks.map(d => d.deckIndex)
       let newIndex = selectedDeckIndex
 
@@ -95,46 +110,44 @@ function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
       }
 
       if (newIndex === null || newIndex >= MAX_DECKS) {
-        alert('卡组数量已达上限 (最多5个)')
+        alert(`Maximum ${MAX_DECKS} decks allowed`)
         setIsSaving(false)
         return
       }
 
-      const cardMints = team.map(c => c.instance.mint)
+      const cardMints = teamCards.map(c => c.instance.mint)
       await saveDeck(playerProfile.wallet, newIndex, deckName, cardMints)
 
-      alert('卡组保存成功！')
+      alert('Deck saved successfully!')
       await loadSavedDecks()
       
-      // 重置编辑状态
       setSelectedDeckIndex(null)
       setDeckName('')
     } catch (error) {
       console.error('Failed to save deck:', error)
-      alert('保存失败: ' + (error as Error).message)
+      alert('Save failed: ' + (error as Error).message)
     }
     setIsSaving(false)
   }
 
   const handleDeleteDeck = async (deckIndex: number) => {
     if (!playerProfile) return
-    if (!confirm('确定要删除这个卡组吗？')) return
+    if (!confirm('Delete this deck?')) return
 
     setIsDeleting(deckIndex)
     try {
       await deleteDeck(playerProfile.wallet, deckIndex)
-      alert('卡组已删除')
+      alert('Deck deleted')
       await loadSavedDecks()
       
-      // 如果删除的是当前编辑的卡组，清空编辑状态
       if (selectedDeckIndex === deckIndex) {
         setSelectedDeckIndex(null)
         setDeckName('')
-        setTeam([])
+        setTeam(Array(MAX_TEAM_SIZE).fill(null))
       }
     } catch (error) {
       console.error('Failed to delete deck:', error)
-      alert('删除失败: ' + (error as Error).message)
+      alert('Delete failed: ' + (error as Error).message)
     }
     setIsDeleting(null)
   }
@@ -143,216 +156,264 @@ function TeamBuilder({ onBack, playerProfile }: TeamBuilderProps) {
     setSelectedDeckIndex(deck.deckIndex)
     setDeckName(deck.deckName)
     
-    // 匹配已保存的卡牌
-    const deckCards: PlayerCard[] = []
-    for (const mint of deck.cardMints) {
+    const deckCards: (PlayerCard | null)[] = Array(MAX_TEAM_SIZE).fill(null)
+    deck.cardMints.forEach((mint, index) => {
       const found = cards.find(c => c.instance.mint.toBase58() === mint.toBase58())
-      if (found) deckCards.push(found)
-    }
+      if (found && index < MAX_TEAM_SIZE) {
+        deckCards[index] = found
+      }
+    })
     setTeam(deckCards)
   }
 
   const handleNewDeck = () => {
     setSelectedDeckIndex(null)
     setDeckName('')
-    setTeam([])
+    setTeam(Array(MAX_TEAM_SIZE).fill(null))
   }
 
-  const getRarityClass = (rarity: number) => {
+  const getStars = (rarity: number) => {
     switch (rarity) {
-      case Rarity.Legendary: return 'legendary'
-      case Rarity.Rare: return 'rare'
-      default: return 'common'
+      case Rarity.Legendary: return 5
+      case Rarity.Rare: return 4
+      default: return 3
     }
   }
 
-  const getTraitEmoji = (traitType: number) => {
+  const getRarityName = (rarity: number) => {
+    switch (rarity) {
+      case Rarity.Legendary: return 'LEGENDARY'
+      case Rarity.Rare: return 'RARE'
+      default: return 'COMMON'
+    }
+  }
+
+  const getTypeName = (traitType: number) => {
     switch (traitType) {
-      case 0: return '⚔️'
-      case 1: return '🏹'
-      case 2: return '🗡️'
-      default: return '❓'
+      case 0: return 'warrior'
+      case 1: return 'archer'
+      case 2: return 'assassin'
+      default: return 'unknown'
     }
   }
-
-  const getTeamStats = () => {
-    const totalAttack = team.reduce((sum, c) => sum + c.instance.attack, 0)
-    const totalHealth = team.reduce((sum, c) => sum + c.instance.health, 0)
-    return { totalAttack, totalHealth }
-  }
-
-  const stats = getTeamStats()
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <span className="icon">👥</span>
-        <h2>组队</h2>
-        <button className="back-btn" onClick={onBack}>返回</button>
+    <div className="team-builder-container">
+      <div className="team-title">TEAM_NODE // DECK BUILDER</div>
+
+      {/* Saved Decks Section */}
+      <div className="saved-decks-bar">
+        <div className="saved-decks-label">SAVED_DECKS ({savedDecks.length}/{MAX_DECKS}):</div>
+        <div className="saved-decks-list">
+          {savedDecks.map((deck) => (
+            <button
+              key={deck.deckIndex}
+              className={`saved-deck-btn ${selectedDeckIndex === deck.deckIndex ? 'active' : ''}`}
+              onClick={() => handleLoadDeck(deck)}
+            >
+              {deck.deckName}
+            </button>
+          ))}
+          <button 
+            className="new-deck-btn-cyber"
+            onClick={handleNewDeck}
+            disabled={savedDecks.length >= MAX_DECKS && selectedDeckIndex === null}
+          >
+            + NEW
+          </button>
+        </div>
       </div>
 
-      <div className="team-builder-content">
-        {/* 已保存的卡组列表 */}
-        <div className="saved-decks-section">
-          <div className="saved-decks-header">
-            <h3>💾 我的卡组 ({savedDecks.length}/{MAX_DECKS})</h3>
-            <button 
-              className="new-deck-btn" 
-              onClick={handleNewDeck}
-              disabled={savedDecks.length >= MAX_DECKS && selectedDeckIndex === null}
-            >
-              + 新建卡组
-            </button>
-          </div>
-          
-          {savedDecks.length === 0 ? (
-            <div className="no-decks-hint">还没有保存的卡组</div>
-          ) : (
-            <div className="saved-decks-list">
-              {savedDecks.map((deck) => (
-                <div 
-                  key={deck.deckIndex} 
-                  className={`saved-deck-item ${selectedDeckIndex === deck.deckIndex ? 'active' : ''}`}
-                >
-                  <div className="deck-info" onClick={() => handleLoadDeck(deck)}>
-                    <span className="deck-name">{deck.deckName}</span>
-                    <span className="deck-card-count">{deck.cardMints.length}张</span>
-                  </div>
-                  <div className="deck-actions">
-                    <button 
-                      className="deck-edit-btn"
-                      onClick={() => handleLoadDeck(deck)}
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      className="deck-delete-btn"
-                      onClick={() => handleDeleteDeck(deck.deckIndex)}
-                      disabled={isDeleting === deck.deckIndex}
-                    >
-                      {isDeleting === deck.deckIndex ? '...' : '🗑️'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Deck Name Input */}
+      <div className="deck-name-section">
+        <input
+          type="text"
+          placeholder="DECK_NAME..."
+          value={deckName}
+          onChange={(e) => setDeckName(e.target.value)}
+          maxLength={32}
+          className="deck-name-input"
+        />
+        <button 
+          className="save-deck-btn-cyber"
+          onClick={handleSaveDeck}
+          disabled={isSaving || team.every(slot => slot === null) || !deckName.trim()}
+        >
+          {isSaving ? 'SAVING...' : selectedDeckIndex !== null ? 'UPDATE_DECK' : 'SAVE_TO_CHAIN'}
+        </button>
+        {selectedDeckIndex !== null && (
+          <button 
+            className="delete-deck-btn-cyber"
+            onClick={() => handleDeleteDeck(selectedDeckIndex)}
+            disabled={isDeleting === selectedDeckIndex}
+          >
+            {isDeleting === selectedDeckIndex ? '...' : 'DELETE'}
+          </button>
+        )}
+      </div>
 
-        {/* 卡组编辑区域 */}
-        <div className="team-section">
-          <div className="team-header">
-            <div className="team-name-input">
-              <input
-                type="text"
-                placeholder="输入卡组名称..."
-                value={deckName}
-                onChange={(e) => setDeckName(e.target.value)}
-                maxLength={32}
-              />
-            </div>
-            <div className="team-stats-mini">
-              <span>⚔️ {stats.totalAttack}</span>
-              <span>❤️ {stats.totalHealth}</span>
-            </div>
-          </div>
-
-          <div className="team-slots-header">
-            <span>阵容 ({team.length}/{MAX_TEAM_SIZE})</span>
-          </div>
-          
-          <div className="team-slots">
-            {Array.from({ length: MAX_TEAM_SIZE }).map((_, i) => {
-              const card = team[i]
-              return (
+      <div className="team-content">
+        <div className="team-left-section">
+          <div className="active-team-section">
+            <div className="section-header-team">ACTIVE TEAM</div>
+            <div className="team-slots-grid">
+              {team.slice(0, 5).map((card, i) => (
                 <div 
                   key={i} 
-                  className={`team-slot ${card ? getRarityClass(card.template?.rarity ?? 0) : 'empty'}`}
-                  onClick={() => card && removeFromTeam(card)}
+                  className={`team-slot-cyber ${card ? 'filled' : 'empty'} ${card ? `rarity-${card.template?.rarity ?? 0}` : ''}`}
+                  onClick={() => card && removeFromTeam(i)}
                 >
                   {card ? (
                     <>
-                      <div className="slot-avatar">
+                      <div className="slot-stars">
+                        {'★'.repeat(getStars(card.template?.rarity ?? 0))}
+                      </div>
+                      <div className="slot-image">
                         {card.template?.imageUri ? (
                           <img src={card.template.imageUri} alt={card.template.name} />
                         ) : '🃏'}
                       </div>
-                      <div className="slot-info">
-                        <span className="slot-name">{card.template?.name ?? '???'}</span>
-                        <span className="slot-stats">⚔️{card.instance.attack} ❤️{card.instance.health}</span>
+                      <div className="slot-label">
+                        ERR: {card.instance.cardTypeId}
                       </div>
-                      <div className="slot-remove">✕</div>
                     </>
                   ) : (
                     <>
-                      <div className="slot-number">{i + 1}</div>
-                      <span className="empty-slot-text">空位</span>
+                      <div className="slot-stars"></div>
+                      <div className="slot-image"></div>
+                      <div className="slot-label empty-label">SLOT</div>
                     </>
                   )}
                 </div>
-              )
-            })}
-          </div>
-
-          <div className="team-actions">
-            <button 
-              className="save-deck-btn" 
-              onClick={handleSaveDeck}
-              disabled={isSaving || team.length === 0 || !deckName.trim()}
-            >
-              {isSaving ? '保存中...' : selectedDeckIndex !== null ? '💾 更新卡组' : '💾 保存到链上'}
-            </button>
-            {team.length > 0 && (
-              <button className="clear-team-btn" onClick={() => setTeam([])}>
-                清空阵容
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 可用卡牌区域 */}
-        <div className="available-section">
-          <div className="available-header">
-            <h3>可用卡牌 ({cards.length}张)</h3>
-            <button className="refresh-btn" onClick={loadCards} disabled={isLoading}>
-              {isLoading ? '加载中...' : '🔄 刷新'}
-            </button>
-          </div>
-          
-          {isLoading ? (
-            <div className="loading-state">加载卡牌中...</div>
-          ) : cards.length === 0 ? (
-            <div className="empty-state">还没有卡牌，去抽卡吧！</div>
-          ) : (
-            <div className="available-grid">
-              {cards.map((card) => {
-                const inTeam = isCardInTeam(card)
+              ))}
+            </div>
+            
+            <div className="team-slots-grid">
+              {team.slice(5, 10).map((card, i) => {
+                const index = i + 5
                 return (
                   <div 
-                    key={card.instance.mint.toBase58()} 
-                    className={`card-item ${getRarityClass(card.template?.rarity ?? 0)} ${inTeam ? 'in-team' : ''}`}
-                    onClick={() => !inTeam && addToTeam(card)}
+                    key={index} 
+                    className={`team-slot-cyber ${card ? 'filled' : 'empty'} ${card ? `rarity-${card.template?.rarity ?? 0}` : ''}`}
+                    onClick={() => card && removeFromTeam(index)}
                   >
-                    <div className="card-trait">
-                      {card.template ? getTraitEmoji(card.template.traitType) : '❓'}
-                    </div>
-                    <div className="card-avatar">
-                      {card.template?.imageUri ? (
-                        <img src={card.template.imageUri} alt={card.template.name} />
-                      ) : '🃏'}
-                    </div>
-                    <div className="card-name">{card.template?.name ?? '???'}</div>
-                    <div className="card-stats">
-                      <span>⚔️{card.instance.attack}</span>
-                      <span>❤️{card.instance.health}</span>
-                    </div>
-                    {inTeam && <div className="selected-badge">已选</div>}
+                    {card ? (
+                      <>
+                        <div className="slot-stars">
+                          {'★'.repeat(getStars(card.template?.rarity ?? 0))}
+                        </div>
+                        <div className="slot-image">
+                          {card.template?.imageUri ? (
+                            <img src={card.template.imageUri} alt={card.template.name} />
+                          ) : '🃏'}
+                        </div>
+                        <div className="slot-label">
+                          ERR: {card.instance.cardTypeId}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="slot-stars"></div>
+                        <div className="slot-image"></div>
+                        <div className="slot-label empty-label">SLOT</div>
+                      </>
+                    )}
                   </div>
                 )
               })}
             </div>
-          )}
+          </div>
+
+          <div className="your-cards-section">
+            <div className="section-header-team">YOUR CARDS ({cards.length})</div>
+            {isLoading ? (
+              <div className="loading-state-team">LOADING...</div>
+            ) : cards.length === 0 ? (
+              <div className="empty-state-team">NO_CARDS_FOUND // GO TO GACHA</div>
+            ) : (
+              <div className="your-cards-grid">
+                {cards.map((card) => {
+                  const inTeam = isCardInTeam(card)
+                  return (
+                    <div 
+                      key={card.instance.mint.toBase58()} 
+                      className={`your-card-cyber ${inTeam ? 'in-team' : ''} rarity-${card.template?.rarity ?? 0}`}
+                      onClick={() => !inTeam && setSelectedCard(card)}
+                    >
+                      <div className="card-stars-cyber">
+                        {'★'.repeat(getStars(card.template?.rarity ?? 0))}
+                      </div>
+                      <div className="card-image-cyber">
+                        {card.template?.imageUri ? (
+                          <img src={card.template.imageUri} alt={card.template.name} />
+                        ) : '🃏'}
+                      </div>
+                      <div className="card-label-cyber">
+                        ERR: {card.instance.cardTypeId}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
+
+        {selectedCard && (
+          <div className="team-info-panel">
+            <div className="info-header-team">ITEM_INFO</div>
+            <div className="info-name-team">
+              {selectedCard.template?.name ?? `MK-${selectedCard.instance.cardTypeId}_WOLF`}
+            </div>
+            
+            <div className="info-row-team">
+              <span className="info-label-team">RARITY:</span>
+              <span className="info-value-team rare">
+                {getRarityName(selectedCard.template?.rarity ?? 0)}
+              </span>
+            </div>
+            <div className="info-row-team">
+              <span className="info-label-team">TYPE:</span>
+              <span className="info-value-team">
+                {getTypeName(selectedCard.template?.traitType ?? 0)}
+              </span>
+            </div>
+            <div className="info-row-team">
+              <span className="info-label-team">ATK_CODE:</span>
+              <span className="info-value-team">{selectedCard.instance.attack}</span>
+            </div>
+            <div className="info-row-team">
+              <span className="info-label-team">HP:</span>
+              <span className="info-value-team">{selectedCard.instance.health}</span>
+            </div>
+
+            <div className="info-log-team">
+              <div className="log-title-team">DATA_LOG:</div>
+              <div className="log-text-team">
+                Missing file....<br/>
+                creature found instead.
+              </div>
+            </div>
+
+            <button 
+              className="add-to-team-btn"
+              onClick={addToTeam}
+              disabled={isCardInTeam(selectedCard) || team.every(slot => slot !== null)}
+            >
+              ADD TO TEAM
+            </button>
+            <button 
+              className="remove-btn-team"
+              onClick={() => {
+                const index = team.findIndex(t => t && t.instance.mint.toBase58() === selectedCard.instance.mint.toBase58())
+                if (index !== -1) removeFromTeam(index)
+              }}
+              disabled={!isCardInTeam(selectedCard)}
+            >
+              REMOVE
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
