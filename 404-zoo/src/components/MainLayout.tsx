@@ -36,7 +36,7 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
   const renderPage = () => {
     switch (currentPage) {
       case 'backpack':
-        return <Backpack onBack={() => navigate('/home')} playerProfile={playerProfile} />
+        return <Backpack onBack={() => navigate('/home')} onNavigateToTeam={() => navigate('/team')} playerProfile={playerProfile} />
       case 'gacha':
         return <GachaPage onBack={() => navigate('/home')} playerProfile={playerProfile} onProfileUpdate={onProfileUpdate} />
       case 'marketplace':
@@ -64,6 +64,9 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
   if (!isRegistered) {
     return (
       <div className="main-layout">
+        <div className="main-layout-bg">
+          <img src="/registerbackground.png" alt="" className="background-image" />
+        </div>
         <div className="main-content">
           <div className="register-screen">
             <h1 className="home-title">404 ZOO</h1>

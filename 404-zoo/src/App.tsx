@@ -9,6 +9,7 @@ import {
   type PlayerProfile,
 } from './services/contract'
 import { loadAndCacheCards } from './services/cardCache'
+import './css/LoadingScreen.css'
 import { preloadPlayerData, clearPlayerDataCache } from './services/playerDataCache'
 
 // Phantom 类型
@@ -138,10 +139,19 @@ function AppContent() {
   // 初始加载中
   if (isLoading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <h1>404 ZOO</h1>
-          <p>连接中...</p>
+      <div className="loading-screen-cyber">
+        <div className="loading-bg">
+          <img src="/background1.png" alt="" className="loading-background-image" />
+        </div>
+        <div className="loading-content-cyber">
+          <h1 className="loading-title">404 ZOO</h1>
+          <p className="loading-subtitle">SYSTEM_INITIALIZING...</p>
+          <div className="loading-spinner-cyber">
+            <div className="spinner-ring"></div>
+            <div className="spinner-ring"></div>
+            <div className="spinner-ring"></div>
+          </div>
+          <p className="loading-text-cyber">CONNECTING_TO_BLOCKCHAIN...</p>
         </div>
       </div>
     )
