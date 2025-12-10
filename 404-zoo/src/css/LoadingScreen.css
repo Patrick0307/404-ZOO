@@ -1,0 +1,226 @@
+/* Loading Screen - Cyberpunk Style */
+.loading-screen-cyber {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.loading-background-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.loading-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.4) 70%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  pointer-events: none;
+}
+
+.loading-content-cyber {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  border: 2px solid rgba(0, 255, 255, 0.5);
+  box-shadow: 
+    0 0 30px rgba(0, 255, 255, 0.3),
+    inset 0 0 30px rgba(0, 255, 255, 0.1);
+  animation: loadingContainerGlow 3s ease-in-out infinite;
+}
+
+@keyframes loadingContainerGlow {
+  0%, 100% {
+    box-shadow: 
+      0 0 30px rgba(0, 255, 255, 0.3),
+      inset 0 0 30px rgba(0, 255, 255, 0.1);
+    border-color: rgba(0, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: 
+      0 0 50px rgba(0, 255, 255, 0.5),
+      inset 0 0 40px rgba(0, 255, 255, 0.2);
+    border-color: rgba(0, 255, 255, 0.8);
+  }
+}
+
+.loading-title {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 48px;
+  color: #ff3366;
+  text-shadow: 
+    0 0 20px rgba(255, 51, 102, 1),
+    0 0 40px rgba(255, 51, 102, 0.8);
+  margin: 0;
+  letter-spacing: 6px;
+  animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%, 100% {
+    text-shadow: 
+      0 0 20px rgba(255, 51, 102, 1),
+      0 0 40px rgba(255, 51, 102, 0.8);
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 
+      0 0 30px rgba(255, 51, 102, 1),
+      0 0 60px rgba(255, 51, 102, 1);
+    transform: scale(1.02);
+  }
+}
+
+.loading-subtitle {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 20px;
+  color: #00ffff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  margin: 0;
+  letter-spacing: 2px;
+  animation: subtitleBlink 1.5s ease-in-out infinite;
+}
+
+@keyframes subtitleBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.6; }
+}
+
+.loading-spinner-cyber {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 20px 0;
+}
+
+.spinner-ring {
+  position: absolute;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  animation: spinnerRotate 2s linear infinite;
+}
+
+.spinner-ring:nth-child(1) {
+  width: 80px;
+  height: 80px;
+  border-top-color: #ff3366;
+  border-right-color: #ff3366;
+  animation-duration: 2s;
+}
+
+.spinner-ring:nth-child(2) {
+  width: 60px;
+  height: 60px;
+  top: 10px;
+  left: 10px;
+  border-top-color: #00ffff;
+  border-left-color: #00ffff;
+  animation-duration: 1.5s;
+  animation-direction: reverse;
+}
+
+.spinner-ring:nth-child(3) {
+  width: 40px;
+  height: 40px;
+  top: 20px;
+  left: 20px;
+  border-top-color: #ffd700;
+  border-bottom-color: #ffd700;
+  animation-duration: 1s;
+}
+
+@keyframes spinnerRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text-cyber {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+  letter-spacing: 1px;
+  animation: loadingTextBlink 1s ease-in-out infinite;
+  margin: 0;
+}
+
+@keyframes loadingTextBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.4; }
+}
+
+
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .loading-title {
+    font-size: 36px;
+    letter-spacing: 4px;
+  }
+  
+  .loading-subtitle {
+    font-size: 16px;
+  }
+  
+  .loading-content-cyber {
+    padding: 30px;
+    gap: 15px;
+  }
+  
+  .loading-spinner-cyber {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .spinner-ring:nth-child(1) {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .spinner-ring:nth-child(2) {
+    width: 45px;
+    height: 45px;
+    top: 7.5px;
+    left: 7.5px;
+  }
+  
+  .spinner-ring:nth-child(3) {
+    width: 30px;
+    height: 30px;
+    top: 15px;
+    left: 15px;
+  }
+}

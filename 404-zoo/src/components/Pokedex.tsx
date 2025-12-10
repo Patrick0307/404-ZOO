@@ -19,6 +19,7 @@ function Pokedex({ onBack }: PokedexProps) {
   const [loading, setLoading] = useState(true)
   const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null)
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
+  const [isClosing, setIsClosing] = useState(false)
 
   useEffect(() => {
     loadCards()
@@ -71,6 +72,14 @@ function Pokedex({ onBack }: PokedexProps) {
 
   const shouldShowImage = (card: CardTemplate): boolean => {
     return !!card.imageUri && card.imageUri.trim() !== '' && !failedImages.has(card.cardTypeId)
+  }
+
+  const handleCloseModal = () => {
+    setIsClosing(true)
+    setTimeout(() => {
+      setSelectedCard(null)
+      setIsClosing(false)
+    }, 500) // 500ms 关闭动画
   }
 
   return (
@@ -130,8 +139,8 @@ function Pokedex({ onBack }: PokedexProps) {
 
       {/* MTG-Style Card Detail Modal */}
       {selectedCard && (
-        <div className="card-modal-overlay-mtg" onClick={() => setSelectedCard(null)}>
-          <div className="mtg-card" onClick={e => e.stopPropagation()}>
+        <div className={`card-modal-overlay-mtg ${isClosing ? 'closing' : ''}`} onClick={handleCloseModal}>
+          <div className={`mtg-card ${isClosing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
             <div className="mtg-card-inner">
               {/* Card Border with Glow */}
               <div className={`mtg-border rarity-${RarityToName[selectedCard.rarity]}`}>
@@ -195,7 +204,7 @@ function Pokedex({ onBack }: PokedexProps) {
               </div>
             </div>
             
-            <button className="mtg-close-btn" onClick={() => setSelectedCard(null)}>✕</button>
+            <button className="mtg-close-btn" onClick={handleCloseModal}>✕</button>
           </div>
         </div>
       )}

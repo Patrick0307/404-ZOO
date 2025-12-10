@@ -370,6 +370,23 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  animation: overlayFadeIn 0.3s ease;
+}
+
+/* Closing animation for overlay */
+.card-modal-overlay-mtg.closing {
+  animation: overlayFadeOut 0.5s ease forwards;
+}
+
+@keyframes overlayFadeOut {
+  from { 
+    opacity: 1; 
+    backdrop-filter: blur(0px);
+  }
+  to { 
+    opacity: 0; 
+    backdrop-filter: blur(10px);
+  }
 }
 
 .mtg-card {
@@ -378,6 +395,52 @@
   height: 680px;
   perspective: 1000px;
   animation: cardAppear 0.5s ease;
+}
+
+/* Closing animation for card */
+.mtg-card.closing {
+  animation: cardDisappear 0.5s ease forwards;
+}
+
+@keyframes cardDisappear {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95) rotateY(-10deg);
+    filter: brightness(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8) rotateY(-20deg);
+    filter: brightness(1.5);
+  }
+}
+
+/* Legendary card special closing animation */
+.mtg-card.closing .mtg-border.rarity-legendary {
+  animation: legendaryCardDisappear 0.5s ease forwards;
+}
+
+@keyframes legendaryCardDisappear {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+    filter: brightness(1.5) drop-shadow(0 0 30px rgba(255, 152, 0, 1));
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05) rotateY(-15deg);
+    filter: brightness(2) drop-shadow(0 0 50px rgba(255, 152, 0, 1));
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.7) rotateY(-30deg);
+    filter: brightness(3) drop-shadow(0 0 80px rgba(255, 152, 0, 1));
+  }
 }
 
 @keyframes cardAppear {
@@ -746,4 +809,24 @@
   background: rgba(0, 200, 255, 0.2);
   box-shadow: 0 0 30px rgba(0, 200, 255, 0.8);
   transform: rotate(90deg);
+}
+
+/* Closing animation for close button */
+.mtg-card.closing .mtg-close-btn {
+  animation: closeButtonSpin 0.5s ease forwards;
+}
+
+@keyframes closeButtonSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: rotate(360deg) scale(0.8);
+    opacity: 0;
+  }
 }
