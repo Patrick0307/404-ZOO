@@ -7,7 +7,6 @@ import {
   getCardTemplate,
   type PlayerProfile,
   type GachaDrawResult,
-  RarityNames,
   type CardTemplate,
 } from '../services/contract'
 
@@ -24,7 +23,7 @@ interface DrawnCard {
 
 type AnimationState = 'idle' | 'charging' | 'overload' | 'revealing' | 'flipping' | 'complete' | 'fading'
 
-function GachaPage({ onBack, playerProfile, onProfileUpdate }: GachaPageProps) {
+function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [recentDraws, setRecentDraws] = useState<DrawnCard[]>([])
   const [animationState, setAnimationState] = useState<AnimationState>('idle')

@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import '../css/Marketplace.css'
 
-interface MarketplaceProps {
-  onBack: () => void
-}
-
 const mockListings = [
   { id: 1, name: 'ER-403_WOLF', rarity: 'RARE', stars: 3, price: 125, errCode: 'R404', atk: 40, hp: 120, type: 'warrior' },
   { id: 2, name: 'ER-500_BEAR', rarity: 'RARE', stars: 3, price: 125, errCode: 'R770', atk: 45, hp: 110, type: 'warrior' },
@@ -14,10 +10,8 @@ const mockListings = [
   { id: 6, name: 'ER-418_TEAPOT_GIANT', rarity: 'SUPER_RARE', stars: 3, price: 125, errCode: 'R888', atk: 43, hp: 122, type: 'assassin' },
 ]
 
-function Marketplace({ onBack }: MarketplaceProps) {
+function Marketplace() {
   const [selectedCard, setSelectedCard] = useState(mockListings[0])
-  const [filterRarity, setFilterRarity] = useState<string[]>(['RARE'])
-  const [filterType, setFilterType] = useState('warrior')
 
   return (
     <div className="marketplace-container">

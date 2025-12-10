@@ -10,11 +10,7 @@ import {
 } from '../services/contract'
 import { getCachedCards, getImageUrl } from '../services/cardCache'
 
-interface PokedexProps {
-  onBack: () => void
-}
-
-function Pokedex({ onBack }: PokedexProps) {
+function Pokedex() {
   const [cards, setCards] = useState<CardTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null)
@@ -45,15 +41,6 @@ function Pokedex({ onBack }: PokedexProps) {
       case Rarity.Rare: return '★★★★'
       case Rarity.Legendary: return '★★★★★'
       default: return '★★★'
-    }
-  }
-
-  const getRarityEmoji = (rarity: Rarity): string => {
-    switch (rarity) {
-      case Rarity.Common: return '⚪'
-      case Rarity.Rare: return '🔵'
-      case Rarity.Legendary: return '🟠'
-      default: return '⚪'
     }
   }
 

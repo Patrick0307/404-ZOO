@@ -1,9 +1,5 @@
 import '../css/Leaderboard.css'
 
-interface LeaderboardProps {
-  onBack: () => void
-}
-
 const mockPlayers = [
   { rank: 1, name: 'DragonMaster', wallet: '0x7a...3f', wins: 156, score: 2850 },
   { rank: 2, name: 'PhoenixKing', wallet: '0x4b...9c', wins: 142, score: 2720 },
@@ -15,7 +11,7 @@ const mockPlayers = [
   { rank: 8, name: 'EarthShaker', wallet: '0x6d...4c', wins: 98, score: 2280 },
 ]
 
-function Leaderboard({ onBack }: LeaderboardProps) {
+function Leaderboard() {
   const getRankClass = (rank: number) => {
     if (rank === 1) return 'rank-top-1'
     if (rank === 2) return 'rank-top-2'

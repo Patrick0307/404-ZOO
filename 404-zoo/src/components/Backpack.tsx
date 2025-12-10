@@ -5,7 +5,6 @@ import {
   type PlayerCard,
   type PlayerProfile,
   Rarity,
-  RarityNames,
 } from '../services/contract'
 
 interface BackpackProps {
@@ -14,13 +13,11 @@ interface BackpackProps {
   playerProfile: PlayerProfile | null
 }
 
-function Backpack({ onBack, onNavigateToTeam, playerProfile }: BackpackProps) {
+function Backpack({ playerProfile }: BackpackProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
   const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<number | null>(null)
-  const [showModal, setShowModal] = useState(false)
-  const [isClosing, setIsClosing] = useState(false)
+  const [filter] = useState<number | null>(null)
 
   useEffect(() => {
     if (playerProfile) {
