@@ -13,11 +13,13 @@ interface BackpackProps {
   playerProfile: PlayerProfile | null
 }
 
-function Backpack({ playerProfile }: BackpackProps) {
+function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
   const [cards, setCards] = useState<PlayerCard[]>([])
   const [selectedCard, setSelectedCard] = useState<PlayerCard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [filter] = useState<number | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
 
   useEffect(() => {
     if (playerProfile) {
