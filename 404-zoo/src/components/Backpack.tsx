@@ -71,12 +71,12 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
     }
   }
 
-  const getTraitEmoji = (traitType: number): string => {
+  const getTraitIcon = (traitType: number): string => {
     switch (traitType) {
-      case 0: return '⚔️'
-      case 1: return '🏹'
-      case 2: return '🗡️'
-      default: return '❓'
+      case 0: return 'ATK'
+      case 1: return 'RNG'
+      case 2: return 'MEL'
+      default: return 'UNK'
     }
   }
 
@@ -204,7 +204,7 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
                       />
                     ) : (
                       <div className="mtg-fallback-image">
-                        <span className="fallback-icon-large">{getTraitEmoji(selectedCard.template?.traitType ?? 0)}</span>
+                        <span className="fallback-icon-large">{getTraitIcon(selectedCard.template?.traitType ?? 0)}</span>
                       </div>
                     )}
                   </div>

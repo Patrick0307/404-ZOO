@@ -1,70 +1,199 @@
-/* Arena 战斗容器 */
+/* Arena Battle Container - Team Builder Style */
 .arena-battle-container {
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* 匹配界面 */
+.arena-battle-container-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.arena-battle-container-bg .background-image {
+  width: 100%;
+  height: 120%;
+  object-fit: cover;
+  object-position: center 20%;
+  position: absolute;
+  top: -10%;
+  left: 0;
+}
+
+.arena-battle-container-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 20%,
+    rgba(0, 0, 0, 0.6) 60%,
+    rgba(0, 0, 0, 0.9) 100%
+  );
+  pointer-events: none;
+}
+
+.arena-battle-container > *:not(.arena-battle-container-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Matching Interface - Square with Rounded Edges like Battle Rules */
 .arena-matching-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  gap: 20px;
+  gap: 30px;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  width: 400px;
+  height: 400px;
 }
 
 .arena-matching-screen .matching-spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #6366f1;
-  border-radius: 50%;
-  animation: arena-spin 1s linear infinite;
+  width: 80px;
+  height: 80px;
+  position: relative;
 }
 
-@keyframes arena-spin {
-  to { transform: rotate(360deg); }
+.arena-matching-screen .matching-spinner .spinner-ring:nth-child(1) {
+  position: absolute;
+}
+
+.arena-matching-screen .matching-spinner .spinner-ring:nth-child(2) {
+  position: absolute;
+}
+
+.arena-matching-screen .matching-spinner .spinner-ring:nth-child(3) {
+  position: absolute;
+}
+
+.arena-matching-screen .spinner-ring {
+  position: absolute;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  animation: arenaSpinnerRotate 2s linear infinite;
+}
+
+.arena-matching-screen .spinner-ring:nth-child(1) {
+  width: 80px;
+  height: 80px;
+  border-top-color: #ff3366;
+  border-right-color: #ff3366;
+  animation-duration: 2s;
+}
+
+.arena-matching-screen .spinner-ring:nth-child(2) {
+  width: 60px;
+  height: 60px;
+  top: 10px;
+  left: 10px;
+  border-top-color: #00ffff;
+  border-left-color: #00ffff;
+  animation-duration: 1.5s;
+  animation-direction: reverse;
+}
+
+.arena-matching-screen .spinner-ring:nth-child(3) {
+  width: 40px;
+  height: 40px;
+  top: 20px;
+  left: 20px;
+  border-top-color: #ffd700;
+  border-bottom-color: #ffd700;
+  animation-duration: 1s;
+}
+
+@keyframes arenaSpinnerRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .arena-matching-screen h2 {
-  color: #fff;
-  font-size: 24px;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #ff0000;
+  font-size: 32px;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  text-align: center;
+  margin: 0;
+  letter-spacing: 4px;
+  animation: arenaDefeatTitleFlicker 1.5s ease-in-out infinite;
 }
 
 .arena-matching-screen .cancel-btn {
-  padding: 10px 24px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #fff;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  font-size: 14px;
+  color: #00ffff;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid #00ffff;
+  padding: 10px 20px;
   cursor: pointer;
+  text-shadow: 0 0 8px #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  transition: all 0.3s ease;
+  border-radius: 8px;
 }
 
-/* 战斗界面 */
+.arena-matching-screen .cancel-btn:hover {
+  background: rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+  transform: none;
+}
+
+/* Battle Interface */
 .arena-battle-arena {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "header"
+    "battlefield"
+    "controls";
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  padding: 15px;
+  box-sizing: border-box;
+  gap: 15px;
 }
 
-/* 顶部信息栏 */
+/* Top Information Bar - Team Builder Style */
 .arena-battle-header {
+  grid-area: header;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 20px;
-  background: rgba(0, 0, 0, 0.4);
-  flex-shrink: 0;
-  height: 60px;
+  padding: 15px 25px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 15px;
+  margin-bottom: 20px;
 }
 
 .arena-battle-header .player-info {
@@ -76,16 +205,20 @@
 
 .arena-battle-header .player-info.left {
   align-items: flex-start;
+  margin-left: 60px;
 }
 
 .arena-battle-header .player-info.right {
   align-items: flex-end;
+  margin-right: 60px;
 }
 
 .arena-battle-header .player-name {
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  text-shadow: 0 0 8px #00ffff;
+  font-size: 16px;
+  letter-spacing: 1px;
 }
 
 .arena-battle-header .hp-bar {
@@ -99,12 +232,12 @@
 
 .arena-battle-header .hp-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: linear-gradient(90deg, #166534, #15803d);
   transition: width 0.5s ease;
 }
 
 .arena-battle-header .hp-fill.opponent {
-  background: linear-gradient(90deg, #ef4444, #f87171);
+  background: linear-gradient(90deg, #991b1b, #dc2626);
 }
 
 .arena-battle-header .hp-text {
@@ -123,44 +256,84 @@
 }
 
 .arena-battle-header .round-number {
-  color: #fbbf24;
-  font-size: 18px;
-  font-weight: 700;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #ff0000;
+  font-size: 20px;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  letter-spacing: 2px;
 }
 
 .arena-battle-header .phase-indicator {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 13px;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 14px;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  letter-spacing: 1px;
 }
 
-.arena-battle-header .result.win { color: #22c55e; }
-.arena-battle-header .result.lose { color: #ef4444; }
-.arena-battle-header .result.draw { color: #fbbf24; }
+.arena-battle-header .result.win { 
+  color: #00ffff; 
+  text-shadow: 0 0 10px #00ffff;
+}
+.arena-battle-header .result.lose { 
+  color: #ff0000;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+}
+.arena-battle-header .result.draw { 
+  color: #ffd700; 
+  text-shadow: 0 0 10px #ffd700;
+}
 
-/* 主战场区域 */
+/* Main Battlefield Area - Horror Style */
 .arena-battle-main {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
+  grid-area: battlefield;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-areas: "player-field center opponent-field";
   align-items: center;
-  padding: 10px 20px;
-  min-height: 0;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 255, 0.4);
+  border-radius: 20px;
+  box-shadow: 
+    0 0 30px rgba(0, 255, 255, 0.3),
+    inset 0 0 30px rgba(0, 255, 255, 0.1);
+  gap: 30px;
 }
 
 .arena-battle-main .battlefield {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 15px;
+  padding: 20px;
+}
+
+.arena-battle-main .battlefield.player-side {
+  grid-area: player-field;
+  padding-right: 40px;
+}
+
+.arena-battle-main .battlefield.opponent-side {
+  grid-area: opponent-field;
+  padding-left: 40px;
 }
 
 .arena-battle-main .side-label {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  font-weight: 600;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 14px;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  letter-spacing: 1px;
 }
 
-/* 战场格子 - 两列三行布局 */
+/* Battlefield Grid - Three Columns Two Rows Layout (2x3) */
 .arena-battle-grid {
   display: flex;
   flex-direction: column;
@@ -174,8 +347,8 @@
 }
 
 .arena-battle-grid .grid-cell {
-  width: 90px;
-  height: 70px;
+  width: 120px;
+  height: 90px;
   background: rgba(255, 255, 255, 0.05);
   border: 2px dashed rgba(255, 255, 255, 0.2);
   border-radius: 8px;
@@ -191,8 +364,10 @@
   position: absolute;
   top: 2px;
   left: 4px;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 68, 68, 0.6);
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.3);
   z-index: 1;
 }
 
@@ -207,7 +382,7 @@
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* 单位卡片 - 左边星星竖排，右边图片 */
+/* Unit Cards - Stars on Left Vertical, Image on Right */
 .arena-battle-grid .unit-card {
   width: 100%;
   height: 100%;
@@ -234,7 +409,7 @@
 .arena-battle-grid .unit-card.rarity-1 { border: 2px solid #3b82f6; }
 .arena-battle-grid .unit-card.rarity-2 { border: 2px solid #f59e0b; }
 
-/* 星星竖排显示（左边） */
+/* Stars Vertical Display (Left Side) */
 .arena-battle-grid .unit-stars-vertical {
   display: flex;
   flex-direction: column;
@@ -247,7 +422,7 @@
   line-height: 1;
 }
 
-/* 图片（右边） */
+/* Image (Right Side) */
 .arena-battle-grid .unit-image {
   width: 50px;
   height: 50px;
@@ -262,13 +437,24 @@
   object-fit: cover;
 }
 
-/* 中间区域 */
+/* Center Area - Horror Style */
 .arena-battle-main .battle-center {
-  flex: 1;
-  max-width: 300px;
+  grid-area: center;
+  width: 250px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: 
+    linear-gradient(135deg, rgba(139, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.95) 100%);
+  border: 2px solid rgba(255, 0, 0, 0.7);
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 
+    0 0 40px rgba(255, 0, 0, 0.5),
+    inset 0 0 40px rgba(139, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
 }
 
 .arena-battle-main .vs-display {
@@ -298,11 +484,16 @@
   border-bottom: none;
 }
 
-/* 底部控制区 */
+/* Bottom Control Area - Horror Style */
 .arena-battle-bottom {
-  flex-shrink: 0;
+  grid-area: controls;
   position: relative;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(0, 255, 255, 0.4);
+  border-radius: 15px;
+  box-shadow: 
+    0 0 30px rgba(0, 255, 255, 0.3),
+    inset 0 0 30px rgba(0, 255, 255, 0.1);
 }
 
 .arena-battle-bottom .bench-area {
@@ -314,7 +505,7 @@
 }
 
 .arena-battle-bottom .bench-area.expanded {
-  max-height: 280px;
+  max-height: 500px;
 }
 
 .arena-battle-bottom .bench-header {
@@ -323,10 +514,17 @@
   align-items: center;
   padding: 10px 20px;
   cursor: pointer;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.3);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  color: #ff0000;
+  font-size: 20px;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  border-top: 1px solid rgba(139, 0, 0, 0.5);
+  letter-spacing: 1px;
+
 }
 
 .arena-battle-bottom .toggle-icon {
@@ -335,24 +533,24 @@
 
 .arena-battle-bottom .bench-units {
   display: flex;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 16px;
+  padding: 20px 40px;
   overflow-x: auto;
-  min-height: 80px;
+  min-height: 200px;
 }
 
 .arena-battle-bottom .bench-unit {
   position: relative;
   flex-shrink: 0;
-  width: 70px;
-  height: 85px;
+  width: 140px;
+  height: 170px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px;
-  padding-bottom: 20px;
-  border-radius: 8px;
+  padding: 12px;
+  padding-bottom: 40px;
+  border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -365,18 +563,33 @@
   box-shadow: 0 0 0 3px #6366f1;
 }
 
-.arena-battle-bottom .bench-unit.star-1 { background: linear-gradient(135deg, #374151, #4b5563); }
-.arena-battle-bottom .bench-unit.star-2 { background: linear-gradient(135deg, #1e40af, #3b82f6); }
-.arena-battle-bottom .bench-unit.star-3 { background: linear-gradient(135deg, #b45309, #f59e0b); }
+.arena-battle-bottom .bench-unit.star-1 { 
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 255, 0.1)); 
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.3);
+}
+.arena-battle-bottom .bench-unit.star-2 { 
+  background: linear-gradient(135deg, rgba(255, 51, 102, 0.2), rgba(255, 51, 102, 0.1)); 
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.3);
+}
+.arena-battle-bottom .bench-unit.star-3 { 
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1)); 
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+}
 
-.arena-battle-bottom .bench-unit.rarity-0 { border: 2px solid #9ca3af; }
-.arena-battle-bottom .bench-unit.rarity-1 { border: 2px solid #3b82f6; }
-.arena-battle-bottom .bench-unit.rarity-2 { border: 2px solid #f59e0b; }
+.arena-battle-bottom .bench-unit.rarity-0 { 
+  border: 2px solid rgba(0, 255, 255, 0.5); 
+}
+.arena-battle-bottom .bench-unit.rarity-1 { 
+  border: 2px solid rgba(255, 51, 102, 0.5); 
+}
+.arena-battle-bottom .bench-unit.rarity-2 { 
+  border: 2px solid rgba(255, 215, 0, 0.5); 
+}
 
 .arena-battle-bottom .bench-unit .unit-image {
-  width: 35px;
-  height: 35px;
-  border-radius: 4px;
+  width: 70px;
+  height: 70px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -387,29 +600,31 @@
 }
 
 .arena-battle-bottom .bench-unit .unit-stars {
-  font-size: 9px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .arena-battle-bottom .bench-unit .unit-name {
-  color: #fff;
-  font-size: 9px;
-  font-weight: 600;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 18px;
+  text-shadow: 0 0 6px rgba(0, 255, 255, 0.5);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 60px;
+  max-width: 120px;
+  letter-spacing: 1px;
 }
 
 .arena-battle-bottom .bench-unit .unit-stats {
   display: flex;
-  gap: 4px;
-  font-size: 8px;
+  gap: 8px;
+  font-size: 16px;
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 商店区域 */
+/* Shop Area */
 .arena-battle-bottom .shop-area {
   padding: 10px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -420,42 +635,56 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 20px;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  letter-spacing: 1px;
 }
 
 .arena-battle-bottom .refresh-btn {
-  padding: 6px 12px;
-  background: rgba(99, 102, 241, 0.3);
-  border: 1px solid rgba(99, 102, 241, 0.5);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  padding: 8px 16px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 2px solid rgba(139, 0, 0, 0.6);
   border-radius: 6px;
-  color: #fff;
-  font-size: 12px;
+  color: #ff0000;
+  font-size: 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.3);
+  letter-spacing: 1px;
 }
 
 .arena-battle-bottom .refresh-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.5);
+  background: rgba(139, 0, 0, 0.4);
+  box-shadow: 0 0 20px rgba(139, 0, 0, 0.6);
+  transform: translateY(-1px);
+  /* animation: horrorButtonGlow 0.5s ease-in-out; */
 }
 
 .arena-battle-bottom .refresh-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
+  filter: grayscale(50%);
 }
 
 .arena-battle-bottom .shop-cards {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .arena-battle-bottom .shop-card {
-  width: 100px;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 10px;
+  width: 260px;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 15px;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
@@ -466,16 +695,25 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-.arena-battle-bottom .shop-card.rarity-0 { border: 2px solid #9ca3af; }
-.arena-battle-bottom .shop-card.rarity-1 { border: 2px solid #3b82f6; }
-.arena-battle-bottom .shop-card.rarity-2 { border: 2px solid #f59e0b; }
+.arena-battle-bottom .shop-card.rarity-0 { 
+  border: 2px solid rgba(0, 255, 255, 0.5); 
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+}
+.arena-battle-bottom .shop-card.rarity-1 { 
+  border: 2px solid rgba(255, 51, 102, 0.5); 
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.2);
+}
+.arena-battle-bottom .shop-card.rarity-2 { 
+  border: 2px solid rgba(255, 215, 0, 0.5); 
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+}
 
 .arena-battle-bottom .card-image {
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
+  width: 160px;
+  height: 160px;
+  border-radius: 12px;
   overflow: hidden;
-  margin: 0 auto 6px;
+  margin: 0 auto 16px;
 }
 
 .arena-battle-bottom .card-image img {
@@ -491,13 +729,15 @@
 }
 
 .arena-battle-bottom .card-name {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  margin: 4px 0;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  color: #00ffff;
+  font-size: 16px;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  margin: 8px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.5px;
 }
 
 .arena-battle-bottom .card-type {
@@ -508,19 +748,21 @@
 .arena-battle-bottom .card-stats {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  font-size: 11px;
+  gap: 12px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.8);
-  margin: 6px 0;
+  margin: 8px 0;
 }
 
 .arena-battle-bottom .card-price {
-  font-size: 12px;
-  color: #fbbf24;
-  font-weight: 600;
+  font-family: 'PixelGame', 'Courier New', monospace;
+  font-size: 16px;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  letter-spacing: 1px;
 }
 
-/* 商店卡牌禁用状态 */
+/* Shop Card Disabled State */
 .arena-battle-bottom .shop-card.disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -538,17 +780,17 @@
   margin-top: 4px;
 }
 
-/* 卖出按钮 */
+/* Sell Button */
 .arena-battle-bottom .bench-unit .sell-btn {
   position: absolute;
-  bottom: 2px;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 6px;
-  font-size: 8px;
+  padding: 4px 12px;
+  font-size: 16px;
   background: rgba(239, 68, 68, 0.8);
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   color: #fff;
   cursor: pointer;
   opacity: 0;
@@ -564,15 +806,16 @@
   background: rgba(239, 68, 68, 1);
 }
 
-/* 金币显示 */
+/* Gold Display */
 .arena-battle-bottom .gold-display {
   position: absolute;
   right: 20px;
   top: 10px;
+  font-size: 20px;
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
   padding: 8px 14px;
   border-radius: 20px;
   border: 2px solid rgba(251, 191, 36, 0.3);
@@ -583,84 +826,193 @@
 }
 
 .arena-battle-bottom .gold-amount {
-  color: #fbbf24;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  color: #ff0000;
   font-size: 18px;
-  font-weight: 700;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  letter-spacing: 1px;
 }
 
 .arena-battle-bottom .streak {
-  color: #f97316;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  color: #ff0000;
   font-size: 12px;
-  font-weight: 600;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
   margin-left: 6px;
+  letter-spacing: 1px;
 }
 
-/* 退出按钮 */
+/* Exit Button - Horror Style */
 .arena-battle-arena .exit-btn {
   position: absolute;
   top: 10px;
   left: 10px;
-  padding: 6px 12px;
-  background: rgba(239, 68, 68, 0.3);
-  border: 1px solid rgba(239, 68, 68, 0.5);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  padding: 8px 16px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 2px solid #8b0000;
   border-radius: 6px;
-  color: #fff;
+  color: #ff0000;
   font-size: 12px;
   cursor: pointer;
   z-index: 10;
+  transition: all 0.3s ease;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  box-shadow: 
+    0 0 20px rgba(139, 0, 0, 0.5),
+    inset 0 0 20px rgba(75, 0, 0, 0.2);
+  letter-spacing: 1px;
+  animation: arenaDefeatTitleFlicker 1.5s ease-in-out infinite;
 }
 
 .arena-battle-arena .exit-btn:hover {
-  background: rgba(239, 68, 68, 0.5);
+  background: rgba(139, 0, 0, 0.4);
+  box-shadow: 
+    0 0 30px rgba(139, 0, 0, 0.8),
+    inset 0 0 30px rgba(75, 0, 0, 0.4);
+  transform: translateY(-2px);
+  animation: horrorButtonGlow 0.5s ease-in-out;
 }
 
-/* 游戏结束界面 */
+/* Game Over Screen - Scary Cyberpunk Style */
 .arena-gameover-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 20px;
+  gap: 30px;
+  padding: 40px;
+  background: 
+    linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at center, rgba(139, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.95) 70%);
+  background-size: 8px 8px, 8px 8px, 100% 100%;
+  border-radius: 12px;
+  /* border: 2px solid rgba(255, 0, 0, 0.8); */
+  box-shadow: 
+    0 0 60px rgba(255, 0, 0, 0.6),
+    inset 0 0 60px rgba(139, 0, 0, 0.3),
+    inset 0 0 4px rgba(255, 0, 0, 0.5);
+  position: relative;
+  z-index: 1;
+  animation: defeatScreenFlicker 3s ease-in-out infinite;
 }
 
 .arena-gameover-screen h2 {
-  font-size: 36px;
-  color: #fff;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 48px;
+  text-align: center;
+  align-items: center;
+  color: #ff0000;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
+  margin: 0;
+  letter-spacing: 6px;
+  animation: arenaDefeatTitleFlicker 1.5s ease-in-out infinite;
+}
+
+@keyframes defeatScreenFlicker {
+  0%, 100% {
+    box-shadow: 
+      0 0 60px rgba(255, 0, 0, 0.6),
+      inset 0 0 60px rgba(139, 0, 0, 0.3);
+  }
+  25% {
+    box-shadow: 
+      0 0 80px rgba(255, 0, 0, 0.8),
+      inset 0 0 80px rgba(139, 0, 0, 0.5);
+  }
+  75% {
+    box-shadow: 
+      0 0 40px rgba(255, 0, 0, 0.4),
+      inset 0 0 40px rgba(139, 0, 0, 0.2);
+  }
+}
+
+@keyframes arenaDefeatTitleFlicker {
+  0%, 90%, 100% {
+    text-shadow: 
+      0 0 30px rgba(255, 0, 0, 1),
+      0 0 60px rgba(139, 0, 0, 0.8),
+      0 0 90px rgba(255, 0, 0, 0.6);
+    opacity: 1;
+  }
+  5%, 15%, 25% {
+    text-shadow: 
+      0 0 50px rgba(255, 0, 0, 1),
+      0 0 100px rgba(139, 0, 0, 1),
+      0 0 150px rgba(255, 0, 0, 0.8);
+    opacity: 0.8;
+  }
+  10%, 20% {
+    opacity: 0.3;
+    text-shadow: 
+      0 0 10px rgba(255, 0, 0, 0.5),
+      0 0 20px rgba(139, 0, 0, 0.3);
+  }
 }
 
 .arena-gameover-screen .final-stats {
-  color: rgba(255, 255, 255, 0.7);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  color: #ff0000;
+  text-shadow: 
+    0 0 30px rgba(255, 0, 0, 1),
+    0 0 60px rgba(139, 0, 0, 0.8),
+    0 0 90px rgba(255, 0, 0, 0.6);
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 2;
+  letter-spacing: 1px;
+  animation: arenaDefeatTitleFlicker 1.5s ease-in-out infinite;
 }
 
 .arena-gameover-screen .return-btn {
-  padding: 14px 36px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  padding: 16px 48px;
+  background: rgba(139, 0, 0, 0.2);
+  border: 2px solid #ff3366;
   border-radius: 10px;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
+  color: #ff3366;
+  font-size: 18px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  text-shadow: 0 0 8px #ff3366;
+  box-shadow: 
+    0 0 20px rgba(255, 51, 102, 0.3),
+    inset 0 0 20px rgba(139, 0, 0, 0.2);
+  letter-spacing: 2px;
 }
 
 .arena-gameover-screen .return-btn:hover {
-  transform: scale(1.05);
+  background: rgba(139, 0, 0, 0.4);
+  box-shadow: 
+    0 0 30px rgba(255, 51, 102, 0.6),
+    inset 0 0 30px rgba(139, 0, 0, 0.4);
+  transform: translateY(-2px);
 }
 
-/* 响应式调整 */
+/* Responsive Adjustments */
 @media (max-width: 1200px) {
   .arena-battle-grid .grid-cell {
-    width: 75px;
-    height: 60px;
+    width: 100px;
+    height: 80px;
   }
   
   .arena-battle-grid .unit-name {
     font-size: 9px;
-    max-width: 65px;
+    max-width: 90px;
   }
   
   .arena-battle-main .battle-center {
@@ -670,18 +1022,18 @@
 
 @media (max-width: 900px) {
   .arena-battle-grid .grid-cell {
-    width: 65px;
-    height: 55px;
+    width: 90px;
+    height: 70px;
   }
   
   .arena-battle-bottom .bench-unit {
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
   }
   
   .arena-battle-bottom .shop-card {
-    width: 85px;
-    padding: 8px;
+    width: 220px;
+    padding: 20px;
   }
   
   .arena-battle-header .hp-bar {
@@ -689,7 +1041,7 @@
   }
 }
 
-/* 滚动条样式 */
+/* Scrollbar Styles */
 .arena-battle-main .battle-log::-webkit-scrollbar,
 .arena-battle-bottom .bench-units::-webkit-scrollbar {
   width: 4px;

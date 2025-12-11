@@ -1,6 +1,6 @@
 /**
- * 玩家数据缓存服务
- * 在钱包连接后预加载玩家的卡片和卡组数据到 localStorage
+ * Player Data Cache Service
+ * Preload player's cards and deck data to localStorage after wallet connection
  */
 
 import { PublicKey } from '@solana/web3.js'
@@ -12,17 +12,17 @@ import {
   type PlayerDeck,
 } from './contract'
 
-// 缓存 key
+// Cache key
 const CACHE_KEY_PREFIX = '404zoo_player_'
 const CACHE_VERSION = 'v1'
 
-// 玩家卡片数据
+// Player card data
 export interface PlayerCardData {
   instance: CardInstance
   template: CardTemplate | null
 }
 
-// 缓存数据结构
+// Cache data structure
 interface CachedPlayerData {
   version: string
   wallet: string
@@ -31,13 +31,13 @@ interface CachedPlayerData {
   decks: PlayerDeck[]
 }
 
-// 内存缓存
+// Memory cache
 let memoryCache: CachedPlayerData | null = null
 let currentWallet: string | null = null
 let isLoading = false
 let loadPromise: Promise<void> | null = null
 
-// 缓存有效期 (5分钟)
+// Cache TTL (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000
 
 // 获取缓存 key
@@ -75,7 +75,7 @@ function writeToStorage(data: CachedPlayerData): void {
 }
 
 
-// 序列化 PublicKey (转为 base58 字符串)
+// Serialize PublicKey (convert to base58 string)
 function serializeData(cards: PlayerCardData[], decks: PlayerDeck[]): { cards: unknown[], decks: unknown[] } {
   return {
     cards: cards.map(c => ({
@@ -93,7 +93,7 @@ function serializeData(cards: PlayerCardData[], decks: PlayerDeck[]): { cards: u
   }
 }
 
-// 反序列化 (字符串转回 PublicKey)
+// Deserialize (convert string back to PublicKey)
 function deserializeData(data: CachedPlayerData): { cards: PlayerCardData[], decks: PlayerDeck[] } {
   return {
     cards: (data.cards as unknown[]).map((c: any) => ({
@@ -112,17 +112,17 @@ function deserializeData(data: CachedPlayerData): { cards: PlayerCardData[], dec
 }
 
 /**
- * 预加载玩家数据 (钱包连接后调用)
+ * Preload player data (called after wallet connection)
  */
 export async function preloadPlayerData(wallet: PublicKey): Promise<void> {
   const walletStr = wallet.toBase58()
   
-  // 如果是同一个钱包且正在加载，等待完成
+  // If same wallet and loading, wait for completion
   if (currentWallet === walletStr && isLoading && loadPromise) {
     return loadPromise
   }
   
-  // 如果已有有效缓存，直接返回
+  // If valid cache exists, return directly
   if (currentWallet === walletStr && memoryCache) {
     return
   }
@@ -132,22 +132,22 @@ export async function preloadPlayerData(wallet: PublicKey): Promise<void> {
   
   loadPromise = (async () => {
     try {
-      // 先尝试从 localStorage 读取
+      // Try reading from localStorage first
       const cached = readFromStorage(walletStr)
       if (cached) {
-        console.log('📦 Player data loaded from localStorage cache')
+        console.log('Player data loaded from localStorage cache')
         memoryCache = cached
         return
       }
       
-      // 从链上加载
-      console.log('🔄 Loading player data from chain...')
+      // Load from chain
+      console.log('Loading player data from chain...')
       const [cards, decks] = await Promise.all([
         getPlayerCardsWithTemplates(wallet),
         getPlayerDecks(wallet),
       ])
       
-      // 序列化并缓存
+      // Serialize and cache
       const serialized = serializeData(cards, decks)
       const cacheData: CachedPlayerData = {
         version: CACHE_VERSION,
@@ -160,7 +160,7 @@ export async function preloadPlayerData(wallet: PublicKey): Promise<void> {
       memoryCache = cacheData
       writeToStorage(cacheData)
       
-      console.log(`✅ Player data cached: ${cards.length} cards, ${decks.length} decks`)
+      console.log(`Player data cached: ${cards.length} cards, ${decks.length} decks`)
     } catch (error) {
       console.error('Failed to preload player data:', error)
       throw error
@@ -173,7 +173,7 @@ export async function preloadPlayerData(wallet: PublicKey): Promise<void> {
 }
 
 /**
- * 获取缓存的玩家卡片
+ * Get cached player cards
  */
 export function getCachedPlayerCards(): PlayerCardData[] {
   if (!memoryCache) return []
@@ -182,7 +182,7 @@ export function getCachedPlayerCards(): PlayerCardData[] {
 }
 
 /**
- * 获取缓存的玩家卡组
+ * Get cached player decks
  */
 export function getCachedPlayerDecks(): PlayerDeck[] {
   if (!memoryCache) return []
@@ -191,30 +191,30 @@ export function getCachedPlayerDecks(): PlayerDeck[] {
 }
 
 /**
- * 检查是否有缓存
+ * Check if cache exists
  */
 export function hasPlayerDataCache(): boolean {
   return memoryCache !== null
 }
 
 /**
- * 刷新缓存 (强制重新加载)
+ * Refresh cache (force reload)
  */
 export async function refreshPlayerData(wallet: PublicKey): Promise<void> {
   const walletStr = wallet.toBase58()
   
-  // 清除旧缓存
+  // Clear old cache
   memoryCache = null
   try {
     localStorage.removeItem(getCacheKey(walletStr))
   } catch {}
   
-  // 重新加载
+  // Reload
   return preloadPlayerData(wallet)
 }
 
 /**
- * 清除缓存
+ * Clear cache
  */
 export function clearPlayerDataCache(): void {
   if (currentWallet) {

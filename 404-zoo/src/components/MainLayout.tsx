@@ -70,14 +70,14 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
         <div className="main-content">
           <div className="register-screen">
             <h1 className="home-title">404 ZOO</h1>
-            <p className="home-subtitle">创建你的玩家档案</p>
+            <p className="home-subtitle">Create your player profile</p>
             {isLoading ? (
-              <p className="loading-text">检查中...</p>
+              <p className="loading-text">Checking...</p>
             ) : (
               <div className="register-form">
                 <input
                   type="text"
-                  placeholder="输入用户名"
+                  placeholder="Enter username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="username-input"
@@ -88,14 +88,14 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
                   onClick={() => onRegister(username)}
                   disabled={!username.trim() || isLoading}
                 >
-                  {isLoading ? '注册中...' : '开始冒险'}
+                  {isLoading ? 'Registering...' : 'Start Adventure'}
                 </button>
                 <button className="disconnect-btn" onClick={onDisconnect}>
-                  断开钱包
+                  Disconnect Wallet
                 </button>
               </div>
             )}
-            <p className="wallet-info">钱包: {walletAddress}</p>
+            <p className="wallet-info">Wallet: {walletAddress}</p>
           </div>
         </div>
       </div>

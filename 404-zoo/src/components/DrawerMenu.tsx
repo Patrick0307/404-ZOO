@@ -8,14 +8,14 @@ interface DrawerMenuProps {
 }
 
 const menuItems = [
-  { id: 'home', icon: '🏠', label: '主页' },
-  { id: 'team', icon: '👥', label: '组队' },
-  { id: 'backpack', icon: '🎒', label: '背包' },
-  { id: 'gacha', icon: '🎴', label: '抽卡' },
-  { id: 'marketplace', icon: '🏪', label: '市场' },
-  { id: 'pokedex', icon: '📖', label: '图鉴' },
-  { id: 'battle', icon: '⚔️', label: '对战' },
-  { id: 'leaderboard', icon: '🏆', label: '排行榜' },
+  { id: 'home', icon: 'HOME', label: '主页' },
+  { id: 'team', icon: 'TEAM', label: '组队' },
+  { id: 'backpack', icon: 'BAG', label: '背包' },
+  { id: 'gacha', icon: 'GACHA', label: '抽卡' },
+  { id: 'marketplace', icon: 'MARKET', label: '市场' },
+  { id: 'pokedex', icon: 'DEX', label: '图鉴' },
+  { id: 'battle', icon: 'BATTLE', label: '对战' },
+  { id: 'leaderboard', icon: 'RANK', label: '排行榜' },
 ] as const
 
 function DrawerMenu({ isOpen, onToggle, onNavigate, currentPage }: DrawerMenuProps) {
