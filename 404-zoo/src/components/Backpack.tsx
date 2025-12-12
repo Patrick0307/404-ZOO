@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import '../css/Backpack.css'
 import {
   getPlayerCardsWithTemplates,
+  listCard,
+  getCardListing,
   type PlayerCard,
   type PlayerProfile,
+  type Listing,
   Rarity,
 } from '../services/contract'
 
@@ -20,6 +23,13 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
   const [filter] = useState<number | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
+  
+  // 上架相关状态
+  const [showListModal, setShowListModal] = useState(false)
+  const [listPrice, setListPrice] = useState('')
+  const [isListing, setIsListing] = useState(false)
+  const [listingStatus, setListingStatus] = useState<string | null>(null)
+  const [cardListings, setCardListings] = useState<Map<string, Listing>>(new Map())
 
   useEffect(() => {
     if (playerProfile) {
@@ -36,15 +46,26 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
       if (playerCards.length > 0 && !selectedCard) {
         setSelectedCard(playerCards[0])
       }
+      
+      // 检查每张卡是否已上架
+      const listings = new Map<string, Listing>()
+      for (const card of playerCards) {
+        const listing = await getCardListing(card.instance.mint)
+        if (listing) {
+          listings.set(card.instance.mint.toBase58(), listing)
+        }
+      }
+      setCardListings(listings)
     } catch (error) {
       console.error('Failed to load cards:', error)
     }
     setIsLoading(false)
   }
 
-  const filteredCards = filter === null 
-    ? cards 
-    : cards.filter(c => c.template?.rarity === filter)
+  // 过滤掉已上架的卡，并按稀有度筛选
+  const filteredCards = cards
+    .filter(c => !cardListings.has(c.instance.mint.toBase58())) // 排除已上架的卡
+    .filter(c => filter === null || c.template?.rarity === filter)
 
   const getRarityName = (rarity: number) => {
     switch (rarity) {
@@ -95,6 +116,75 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
       setIsClosing(false)
     }, 500)
   }
+
+  // 打开上架弹窗
+  const handleOpenListModal = () => {
+    if (!selectedCard) return
+    const mintKey = selectedCard.instance.mint.toBase58()
+    if (cardListings.has(mintKey)) {
+      setListingStatus('This card is already listed!')
+      return
+    }
+    setListPrice('')
+    setListingStatus(null)
+    setShowListModal(true)
+  }
+
+  // 关闭上架弹窗
+  const handleCloseListModal = () => {
+    setShowListModal(false)
+    setListPrice('')
+    setListingStatus(null)
+  }
+
+  // 确认上架
+  const handleConfirmList = async () => {
+    if (!selectedCard || !playerProfile || !listPrice) return
+    
+    const price = parseInt(listPrice)
+    if (isNaN(price) || price <= 0) {
+      setListingStatus('Please enter a valid price!')
+      return
+    }
+
+    setIsListing(true)
+    setListingStatus('Listing card...')
+    
+    try {
+      await listCard(playerProfile.wallet, selectedCard.instance.mint, price)
+      setListingStatus('Card listed successfully!')
+      
+      // 更新本地状态
+      const newListings = new Map(cardListings)
+      newListings.set(selectedCard.instance.mint.toBase58(), {
+        seller: playerProfile.wallet,
+        cardMint: selectedCard.instance.mint,
+        price,
+        isActive: true,
+        createdAt: Date.now() / 1000,
+      })
+      setCardListings(newListings)
+      
+      // 清除选中的卡（因为它已经上架了）
+      setSelectedCard(null)
+      
+      setTimeout(() => {
+        handleCloseListModal()
+        // 重新加载卡片列表
+        loadCards()
+      }, 1500)
+    } catch (error) {
+      console.error('Failed to list card:', error)
+      setListingStatus('Failed to list card. Please try again.')
+    }
+    
+    setIsListing(false)
+  }
+
+  // 检查选中的卡是否已上架
+  const isSelectedCardListed = selectedCard 
+    ? cardListings.has(selectedCard.instance.mint.toBase58()) 
+    : false
 
   return (
     <div className="backpack-container">
@@ -175,6 +265,13 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
 
             <button className="use-btn-cyber" onClick={handleUseInBattle}>USE IN BATTLE</button>
             <button className="inspect-btn-cyber" onClick={handleInspect}>INSPECT</button>
+            <button 
+              className={`list-btn-cyber ${isSelectedCardListed ? 'disabled' : ''}`} 
+              onClick={handleOpenListModal}
+              disabled={isSelectedCardListed}
+            >
+              {isSelectedCardListed ? 'LISTED' : 'LIST TO MARKET'}
+            </button>
           </div>
         )}
       </div>
@@ -249,6 +346,60 @@ function Backpack({ playerProfile, onNavigateToTeam }: BackpackProps) {
             </div>
             
             <button className="mtg-close-btn" onClick={handleCloseModal}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* List Card Modal */}
+      {showListModal && selectedCard && (
+        <div className="list-modal-overlay" onClick={handleCloseListModal}>
+          <div className="list-modal-cyber" onClick={e => e.stopPropagation()}>
+            <div className="list-modal-header">LIST_CARD_TO_MARKET</div>
+            
+            <div className="list-modal-card-info">
+              <div className="list-card-name">
+                {selectedCard.template?.name ?? `MK-${selectedCard.instance.cardTypeId}_UNKNOWN`}
+              </div>
+              <div className="list-card-stats">
+                ATK: {selectedCard.instance.attack} | HP: {selectedCard.instance.health}
+              </div>
+            </div>
+
+            <div className="list-price-section">
+              <label className="list-price-label">PRICE (BUG TOKENS):</label>
+              <input
+                type="number"
+                className="list-price-input"
+                value={listPrice}
+                onChange={(e) => setListPrice(e.target.value)}
+                placeholder="Enter price..."
+                min="1"
+                disabled={isListing}
+              />
+            </div>
+
+            {listingStatus && (
+              <div className={`list-status ${listingStatus.includes('success') ? 'success' : listingStatus.includes('Failed') ? 'error' : ''}`}>
+                {listingStatus}
+              </div>
+            )}
+
+            <div className="list-modal-actions">
+              <button 
+                className="list-confirm-btn" 
+                onClick={handleConfirmList}
+                disabled={isListing || !listPrice}
+              >
+                {isListing ? 'LISTING...' : 'CONFIRM LIST'}
+              </button>
+              <button 
+                className="list-cancel-btn" 
+                onClick={handleCloseListModal}
+                disabled={isListing}
+              >
+                CANCEL
+              </button>
+            </div>
           </div>
         </div>
       )}

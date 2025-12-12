@@ -45,38 +45,65 @@ function ConnectWallet({ onConnect }: ConnectWalletProps) {
     setIsConnecting(true)
     setError(null)
 
-    try {
-      // 获取 Phantom provider（确保是 Phantom 而不是其他钱包）
-      const phantom = getPhantomProvider()
-      
-      if (!phantom) {
-        window.open('https://phantom.app/', '_blank')
-        setError('请先安装 Phantom 钱包')
-        setIsConnecting(false)
-        return
+    // 重试逻辑
+    const maxRetries = 3
+    let lastError: unknown = null
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // 获取 Phantom provider（确保是 Phantom 而不是其他钱包）
+        const phantom = getPhantomProvider()
+        
+        if (!phantom) {
+          window.open('https://phantom.app/', '_blank')
+          setError('请先安装 Phantom 钱包')
+          setIsConnecting(false)
+          return
+        }
+
+        // 连接到 Solana devnet
+        const connection = new Connection(clusterApiUrl('devnet'), 'confirmed')
+        console.log('Connected to Solana devnet:', connection.rpcEndpoint)
+
+        // 请求连接 Phantom 钱包
+        console.log(`Attempting to connect (attempt ${attempt}/${maxRetries})...`)
+        const response = await phantom.connect()
+        const publicKey = response.publicKey
+        
+        // 缩短地址显示
+        const address = publicKey.toBase58()
+        const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`
+        
+        console.log('Wallet connected:', address)
+        onConnect(shortAddress, publicKey)
+        return // 成功连接，退出函数
+        
+      } catch (err) {
+        console.error(`Connection attempt ${attempt} failed:`, err)
+        lastError = err
+        
+        // 如果不是最后一次尝试，等待后重试
+        if (attempt < maxRetries) {
+          console.log(`Retrying in ${attempt * 500}ms...`)
+          await new Promise(resolve => setTimeout(resolve, attempt * 500))
+        }
       }
-
-      // 连接到 Solana devnet
-      const connection = new Connection(clusterApiUrl('devnet'), 'confirmed')
-      console.log('Connected to Solana devnet:', connection.rpcEndpoint)
-
-      // 请求连接 Phantom 钱包
-      const response = await phantom.connect()
-      const publicKey = response.publicKey
-      
-      // 缩短地址显示
-      const address = publicKey.toBase58()
-      const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`
-      
-      console.log('Wallet connected:', address)
-      onConnect(shortAddress, publicKey)
-      
-    } catch (err) {
-      console.error('Connection error:', err)
-      setError('连接失败，请重试')
-    } finally {
-      setIsConnecting(false)
     }
+
+    // 所有重试都失败
+    console.error('All connection attempts failed:', lastError)
+    
+    // 根据错误类型显示不同消息
+    const errorMessage = lastError instanceof Error ? lastError.message : String(lastError)
+    if (errorMessage.includes('User rejected') || errorMessage.includes('rejected')) {
+      setError('连接被取消')
+    } else if (errorMessage.includes('Unexpected')) {
+      setError('连接异常，请刷新页面后重试')
+    } else {
+      setError('连接失败，请确保 Phantom 钱包已解锁后重试')
+    }
+    
+    setIsConnecting(false)
   }
 
   return (
