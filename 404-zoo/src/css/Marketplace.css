@@ -304,3 +304,295 @@
   position: relative;
   z-index: 1;
 }
+
+/* Loading and Empty States */
+.loading-state-market,
+.empty-state-market {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 255, 255, 0.6);
+  font-size: 16px;
+}
+
+/* Card Placeholder */
+.card-placeholder {
+  font-size: 48px;
+}
+
+/* Price styling */
+.info-value.price {
+  color: #ffd700;
+  text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+/* Buy Status */
+.buy-status {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #00ffff;
+  text-align: center;
+  padding: 10px;
+  margin-top: 8px;
+  background: rgba(0, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.buy-status.success {
+  color: #00ff00;
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.buy-status.error {
+  color: #ff3366;
+  background: rgba(255, 51, 102, 0.1);
+}
+
+/* Refresh Button */
+.refresh-btn {
+  font-family: 'PixelGame', 'Courier New', monospace;
+  font-size: 12px;
+  color: #00ffff;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.5);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: #00ffff;
+}
+
+/* Disabled button state */
+.acquire-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Rarity-based card styling */
+.market-card-cyber.rarity-2 {
+  border: 3px solid #ffd700;
+  background: linear-gradient(135deg, rgba(26, 16, 0, 0.8), rgba(42, 24, 0, 0.8));
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.market-card-cyber.rarity-2:hover {
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+}
+
+.market-card-cyber.rarity-2 .card-stars,
+.market-card-cyber.rarity-2 .card-rarity-cyber {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+}
+
+.market-card-cyber.rarity-1 {
+  border-color: #2196f3;
+  box-shadow: 0 0 15px rgba(33, 150, 243, 0.3);
+}
+
+.market-card-cyber.rarity-1:hover {
+  box-shadow: 0 0 25px rgba(33, 150, 243, 0.5);
+}
+
+.market-card-cyber.rarity-1 .card-stars,
+.market-card-cyber.rarity-1 .card-rarity-cyber {
+  color: #2196f3;
+}
+
+
+/* ============================================
+   BUG Token Top-up Styles
+   ============================================ */
+
+.topup-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  gap: 30px;
+}
+
+.topup-header {
+  text-align: center;
+}
+
+.topup-title {
+  font-size: 28px;
+  color: #ffd700;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  margin-bottom: 8px;
+}
+
+.topup-subtitle {
+  font-size: 14px;
+  color: rgba(0, 255, 255, 0.6);
+}
+
+.topup-balance {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid #ffd700;
+  padding: 16px 32px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.balance-label {
+  color: #00ffff;
+  font-size: 16px;
+}
+
+.balance-value {
+  color: #ffd700;
+  font-size: 24px;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.topup-options {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.topup-card {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.8));
+  border: 2px solid #00ffff;
+  padding: 24px;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.topup-card:hover {
+  border-color: #ffd700;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+  transform: translateY(-4px);
+}
+
+.topup-card-header {
+  width: 100%;
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.sol-amount {
+  font-size: 24px;
+  color: #00ffff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.topup-card-body {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.bug-amount {
+  font-size: 32px;
+  color: #ffd700;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.bug-label {
+  font-size: 12px;
+  color: rgba(255, 215, 0, 0.7);
+  margin-top: 4px;
+}
+
+.topup-btn {
+  font-family: 'PixelGame', 'Courier New', monospace;
+  font-size: 14px;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+  border: 2px solid #ffd700;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.topup-btn:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.topup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.topup-status {
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  color: #00ffff;
+  text-align: center;
+  padding: 12px 24px;
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+}
+
+.topup-status.success {
+  color: #00ff00;
+  background: rgba(0, 255, 0, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+.topup-status.error {
+  color: #ff3366;
+  background: rgba(255, 51, 102, 0.1);
+  border-color: rgba(255, 51, 102, 0.3);
+}
+
+.topup-info {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  padding: 16px 24px;
+  max-width: 400px;
+}
+
+.topup-info .info-title {
+  color: #00ffff;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.topup-info .info-text {
+  color: rgba(0, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+/* Bottom Balance Bar */
+.market-balance-bar {
+  position: absolute;
+  bottom: 60px;
+  right: 40px;
+  z-index: 10;
+}
+
+.balance-display {
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid #ffd700;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-icon {
+  color: #ffd700;
+  font-size: 18px;
+}
+
+.balance-text {
+  color: #ffd700;
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}

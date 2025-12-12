@@ -40,7 +40,7 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
       case 'gacha':
         return <GachaPage onBack={() => navigate('/home')} playerProfile={playerProfile} onProfileUpdate={onProfileUpdate} />
       case 'marketplace':
-        return <Marketplace />
+        return <Marketplace playerProfile={playerProfile} />
       case 'pokedex':
         return <Pokedex />
       case 'battle':

@@ -1,11 +1,9 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo};
+use anchor_spl::token::{self, Token, TokenAccount, Mint, MintTo, Transfer};
 use anchor_spl::associated_token::AssociatedToken;
-use mpl_token_metadata::instructions::{CreateV1, CreateV1InstructionArgs};
-use mpl_token_metadata::types::{TokenStandard, PrintSupply};
 
 // change
-declare_id!("6yDrfZC6YeWTMrNCPirexQoGHXT5a9gcR7qy5XNLe3Wx "); 
+declare_id!("Fs2LFWmDjqKt16ojH8sPuDgw2mTfqmobQbNcj5nhxVot"); 
 
 #[program]
 pub mod zoo_contract {
@@ -13,21 +11,24 @@ pub mod zoo_contract {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        bug_token_mint: Pubkey,
         normal_pack_price: u64,
+        sol_to_bug_rate: u64,
+        ticket_price: u64,
     ) -> Result<()> {
         let game_config = &mut ctx.accounts.game_config;
         
         game_config.authority = ctx.accounts.authority.key();
         game_config.card_creators = Vec::new();
-        game_config.bug_token_mint = bug_token_mint;
         game_config.normal_pack_price = normal_pack_price;
         game_config.starter_pack_card_count = 10;
+        game_config.sol_to_bug_rate = sol_to_bug_rate;
+        game_config.ticket_price = ticket_price;
         game_config.bump = ctx.bumps.game_config;
         
         msg!("Game initialized with authority: {}", game_config.authority);
-        msg!("BUG token mint: {}", bug_token_mint);
         msg!("Normal pack price: {}", normal_pack_price);
+        msg!("SOL to BUG rate: {} BUG per SOL", sol_to_bug_rate);
+        msg!("Ticket price: {} BUG", ticket_price);
         
         Ok(())
     }
@@ -50,6 +51,8 @@ pub mod zoo_contract {
         
         Ok(())
     }
+    
+
     
     pub fn create_card_template(
         ctx: Context<CreateCardTemplate>,
@@ -153,9 +156,11 @@ pub mod zoo_contract {
         player_profile.username = username.clone();
         player_profile.has_claimed_starter_pack = false;
         player_profile.gacha_tickets = 0;
+        player_profile.bug_balance = 0;
         player_profile.trophies = 0;
         player_profile.total_wins = 0;
         player_profile.total_losses = 0;
+        player_profile.win_streak = 0;
         player_profile.bump = ctx.bumps.player_profile;
         
         msg!("Player registered: {}", username);
@@ -265,6 +270,77 @@ pub mod zoo_contract {
         Ok(())
     }
     
+    /// Buy BUG tokens with SOL (adds to player's bug_balance)
+    pub fn buy_bug_tokens(ctx: Context<BuyBugTokens>, sol_amount: u64) -> Result<()> {
+        let game_config = &ctx.accounts.game_config;
+        let player_profile = &mut ctx.accounts.player_profile;
+        
+        require!(sol_amount > 0, GameError::InvalidAmount);
+        
+        // Calculate BUG tokens based on rate
+        // sol_to_bug_rate = BUG tokens per 1 SOL (1 SOL = 1_000_000_000 lamports)
+        let bug_amount = (sol_amount as u128)
+            .checked_mul(game_config.sol_to_bug_rate as u128)
+            .ok_or(GameError::NumericalOverflow)?
+            .checked_div(1_000_000_000)
+            .ok_or(GameError::NumericalOverflow)? as u64;
+        
+        require!(bug_amount > 0, GameError::InvalidAmount);
+        
+        // Transfer SOL from player to treasury
+        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.player.key(),
+            &ctx.accounts.treasury.key(),
+            sol_amount,
+        );
+        anchor_lang::solana_program::program::invoke(
+            &transfer_ix,
+            &[
+                ctx.accounts.player.to_account_info(),
+                ctx.accounts.treasury.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+        
+        // Add BUG to player's balance
+        player_profile.bug_balance = player_profile.bug_balance
+            .checked_add(bug_amount)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        msg!("Bought {} BUG for {} lamports. Balance: {}", bug_amount, sol_amount, player_profile.bug_balance);
+        
+        Ok(())
+    }
+    
+    /// Buy gacha tickets with BUG balance
+    pub fn buy_gacha_tickets(ctx: Context<BuyGachaTickets>, ticket_count: u64) -> Result<()> {
+        let game_config = &ctx.accounts.game_config;
+        let player_profile = &mut ctx.accounts.player_profile;
+        
+        require!(ticket_count > 0, GameError::InvalidAmount);
+        
+        // Calculate total cost
+        let total_cost = game_config.ticket_price
+            .checked_mul(ticket_count)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Check and deduct BUG balance
+        require!(player_profile.bug_balance >= total_cost, GameError::InsufficientBalance);
+        player_profile.bug_balance = player_profile.bug_balance
+            .checked_sub(total_cost)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Add tickets to player profile
+        player_profile.gacha_tickets = player_profile.gacha_tickets
+            .checked_add(ticket_count)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        msg!("Bought {} gacha tickets for {} BUG", ticket_count, total_cost);
+        msg!("Tickets: {}, BUG balance: {}", player_profile.gacha_tickets, player_profile.bug_balance);
+        
+        Ok(())
+    }
+    
     /// Roll for a random card (view function to help client pick card_type_id)
     /// Client calls this first, then calls gacha_draw with the selected card template
     pub fn roll_gacha(ctx: Context<RollGacha>) -> Result<u32> {
@@ -297,28 +373,20 @@ pub mod zoo_contract {
         _pack_type: u8, // For future expansion
     ) -> Result<()> {
         let game_config = &ctx.accounts.game_config;
+        let player_profile = &mut ctx.accounts.player_profile;
         let player = &ctx.accounts.player;
         let clock = Clock::get()?;
         
-        // Check player has sufficient BUG tokens
+        // Check player has sufficient BUG balance
         let pack_price = game_config.normal_pack_price;
-        require!(
-            ctx.accounts.player_bug_token_account.amount >= pack_price,
-            GameError::InsufficientBalance
-        );
+        require!(player_profile.bug_balance >= pack_price, GameError::InsufficientBalance);
         
-        // Transfer BUG tokens from player to treasury
-        let transfer_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.player_bug_token_account.to_account_info(),
-                to: ctx.accounts.treasury_bug_token_account.to_account_info(),
-                authority: player.to_account_info(),
-            },
-        );
-        token::transfer(transfer_ctx, pack_price)?;
+        // Deduct BUG from player's balance
+        player_profile.bug_balance = player_profile.bug_balance
+            .checked_sub(pack_price)
+            .ok_or(GameError::NumericalOverflow)?;
         
-        msg!("Pack purchased for {} BUG tokens", pack_price);
+        msg!("Pack purchased for {} BUG. Balance: {}", pack_price, player_profile.bug_balance);
         
         // Determine number of cards (currently fixed, could vary by pack_type in future)
         let num_cards = game_config.starter_pack_card_count;
@@ -404,21 +472,186 @@ pub mod zoo_contract {
         Ok(())
     }
 
-    pub fn record_match_result(
-        ctx: Context<RecordMatchResult>,
-        trophy_change: u32,
-        bug_reward_amount: u64,
+    // ========================================================================
+    // Marketplace Functions
+    // ========================================================================
+    
+    /// List a card for sale on the marketplace
+    pub fn list_card(
+        ctx: Context<ListCard>,
+        price: u64,
     ) -> Result<()> {
+        require!(price > 0, GameError::InvalidPrice);
+        
+        let listing = &mut ctx.accounts.listing;
+        listing.seller = ctx.accounts.seller.key();
+        listing.card_mint = ctx.accounts.card_mint.key();
+        listing.price = price;
+        listing.is_active = true;
+        listing.created_at = Clock::get()?.unix_timestamp;
+        listing.bump = ctx.bumps.listing;
+        
+        // Transfer NFT from seller to escrow (listing PDA holds it)
+        let transfer_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.seller_token_account.to_account_info(),
+                to: ctx.accounts.escrow_token_account.to_account_info(),
+                authority: ctx.accounts.seller.to_account_info(),
+            },
+        );
+        token::transfer(transfer_ctx, 1)?;
+        
+        msg!("Card listed: mint={}, price={} BUG", ctx.accounts.card_mint.key(), price);
+        
+        Ok(())
+    }
+    
+    /// Cancel a listing and return the card to seller
+    pub fn cancel_listing(ctx: Context<CancelListing>) -> Result<()> {
+        let listing = &mut ctx.accounts.listing;
+        
+        require!(listing.is_active, GameError::ListingNotActive);
+        
+        // Transfer NFT back to seller
+        let card_mint = ctx.accounts.card_mint.key();
+        let seeds = &[
+            b"listing".as_ref(),
+            card_mint.as_ref(),
+            &[listing.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+        
+        let transfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.escrow_token_account.to_account_info(),
+                to: ctx.accounts.seller_token_account.to_account_info(),
+                authority: listing.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::transfer(transfer_ctx, 1)?;
+        
+        // Close escrow token account and return rent to seller
+        let close_escrow = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::CloseAccount {
+                account: ctx.accounts.escrow_token_account.to_account_info(),
+                destination: ctx.accounts.seller.to_account_info(),
+                authority: listing.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::close_account(close_escrow)?;
+        
+        // listing 账户会被 close 约束自动关闭
+        
+        msg!("Listing cancelled: mint={}", card_mint);
+        
+        Ok(())
+    }
+    
+    /// Buy a listed card (uses BUG balance)
+    pub fn buy_card(ctx: Context<BuyCard>) -> Result<()> {
+        let listing = &mut ctx.accounts.listing;
+        let buyer_profile = &mut ctx.accounts.buyer_profile;
+        let seller_profile = &mut ctx.accounts.seller_profile;
+        
+        require!(listing.is_active, GameError::ListingNotActive);
+        require!(ctx.accounts.buyer.key() != listing.seller, GameError::CannotBuyOwnCard);
+        
+        let price = listing.price;
+        let card_mint = ctx.accounts.card_mint.key();
+        
+        // Check buyer has enough BUG
+        require!(buyer_profile.bug_balance >= price, GameError::InsufficientBalance);
+        
+        // Calculate fee (2.5% platform fee) - fee goes to nowhere (burned)
+        let fee = price.checked_mul(25).unwrap().checked_div(1000).unwrap();
+        let seller_amount = price.checked_sub(fee).unwrap();
+        
+        // Deduct from buyer
+        buyer_profile.bug_balance = buyer_profile.bug_balance
+            .checked_sub(price)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Add to seller (minus fee)
+        seller_profile.bug_balance = seller_profile.bug_balance
+            .checked_add(seller_amount)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Transfer NFT from escrow to buyer
+        let seeds = &[
+            b"listing".as_ref(),
+            card_mint.as_ref(),
+            &[listing.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+        
+        let transfer_nft = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::Transfer {
+                from: ctx.accounts.escrow_token_account.to_account_info(),
+                to: ctx.accounts.buyer_token_account.to_account_info(),
+                authority: listing.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::transfer(transfer_nft, 1)?;
+        
+        // Close escrow token account and return rent to seller
+        let close_escrow = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::CloseAccount {
+                account: ctx.accounts.escrow_token_account.to_account_info(),
+                destination: ctx.accounts.seller.to_account_info(),
+                authority: listing.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::close_account(close_escrow)?;
+        
+        // Update card instance owner
+        let card_instance = &mut ctx.accounts.card_instance;
+        card_instance.owner = ctx.accounts.buyer.key();
+        
+        // listing 账户会被 close 约束自动关闭
+        
+        msg!("Card sold: mint={}, price={}, fee={}", card_mint, price, fee);
+        
+        Ok(())
+    }
+
+    /// Record match result with win streak bonus
+    /// Trophy gain = BASE (30) + win_streak
+    /// Trophy loss = 30 (fixed), win_streak resets to 0
+    /// Winner receives 100 BUG tokens as reward
+    pub fn record_match_result(ctx: Context<RecordMatchResult>) -> Result<()> {
         let winner_profile = &mut ctx.accounts.winner_profile;
         let loser_profile = &mut ctx.accounts.loser_profile;
         
-        // Increase winner trophies (with overflow check)
-        winner_profile.trophies = winner_profile.trophies
-            .checked_add(trophy_change)
+        // Increment winner's win streak first
+        winner_profile.win_streak = winner_profile.win_streak
+            .checked_add(1)
             .ok_or(GameError::NumericalOverflow)?;
         
-        // Decrease loser trophies (clamped to 0)
-        loser_profile.trophies = loser_profile.trophies.saturating_sub(trophy_change);
+        // Calculate trophy gain: base (30) + win_streak bonus
+        // e.g., 1st win: 30+1=31, 2nd win: 30+2=32, 3rd win: 30+3=33...
+        let trophy_gain = PlayerProfile::BASE_TROPHY_GAIN
+            .checked_add(winner_profile.win_streak)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Increase winner trophies
+        winner_profile.trophies = winner_profile.trophies
+            .checked_add(trophy_gain)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        // Decrease loser trophies (fixed 30, clamped to 0)
+        loser_profile.trophies = loser_profile.trophies.saturating_sub(PlayerProfile::TROPHY_LOSS);
+        
+        // Reset loser's win streak
+        loser_profile.win_streak = 0;
         
         // Update win/loss stats
         winner_profile.total_wins = winner_profile.total_wins
@@ -430,23 +663,17 @@ pub mod zoo_contract {
             .ok_or(GameError::NumericalOverflow)?;
         
         msg!("Match result recorded:");
-        msg!("Winner: {} (Trophies: {})", winner_profile.wallet, winner_profile.trophies);
-        msg!("Loser: {} (Trophies: {})", loser_profile.wallet, loser_profile.trophies);
+        msg!("Winner: {} | Trophies: {} (+{}) | Win Streak: {}", 
+            winner_profile.wallet, winner_profile.trophies, trophy_gain, winner_profile.win_streak);
+        msg!("Loser: {} | Trophies: {} (-{}) | Win Streak Reset", 
+            loser_profile.wallet, loser_profile.trophies, PlayerProfile::TROPHY_LOSS);
         
-        // Transfer BUG reward to winner if amount > 0
-        if bug_reward_amount > 0 {
-            let transfer_ctx = CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.treasury_bug_token_account.to_account_info(),
-                    to: ctx.accounts.winner_bug_token_account.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
-                },
-            );
-            token::transfer(transfer_ctx, bug_reward_amount)?;
-            
-            msg!("Reward transferred: {} BUG tokens", bug_reward_amount);
-        }
+        // Add 100 BUG reward to winner's balance
+        winner_profile.bug_balance = winner_profile.bug_balance
+            .checked_add(PlayerProfile::WIN_REWARD)
+            .ok_or(GameError::NumericalOverflow)?;
+        
+        msg!("Reward: {} BUG. Winner balance: {}", PlayerProfile::WIN_REWARD, winner_profile.bug_balance);
         
         Ok(())
     }
@@ -460,9 +687,10 @@ pub mod zoo_contract {
 pub struct GameConfig {
     pub authority: Pubkey,              // Primary admin authority
     pub card_creators: Vec<Pubkey>,     // Authorized card creators (max 10)
-    pub bug_token_mint: Pubkey,         // BUG token mint address
-    pub normal_pack_price: u64,         // Price in lamports of BUG tokens
+    pub normal_pack_price: u64,         // Price in BUG tokens
     pub starter_pack_card_count: u8,    // Fixed at 10
+    pub sol_to_bug_rate: u64,           // How many BUG tokens per 1 SOL (in lamports)
+    pub ticket_price: u64,              // Price of 1 gacha ticket in BUG tokens
     pub bump: u8,                       // PDA bump seed
 }
 
@@ -471,8 +699,9 @@ impl GameConfig {
     
     // Calculate space needed for account
     // 8 (discriminator) + 32 (authority) + 4 + (32 * 10) (card_creators vec) 
-    // + 32 (bug_token_mint) + 8 (normal_pack_price) + 1 (starter_pack_card_count) + 1 (bump)
-    pub const LEN: usize = 8 + 32 + 4 + (32 * 10) + 32 + 8 + 1 + 1;
+    // + 8 (normal_pack_price) + 1 (starter_pack_card_count) 
+    // + 8 (sol_to_bug_rate) + 8 (ticket_price) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 4 + (32 * 10) + 8 + 1 + 8 + 8 + 1;
 }
 
 #[account]
@@ -508,20 +737,25 @@ pub struct PlayerProfile {
     pub username: String,               // Max 32 chars
     pub has_claimed_starter_pack: bool,
     pub gacha_tickets: u64,             // Number of gacha tickets owned
+    pub bug_balance: u64,               // BUG token balance (game currency)
     pub trophies: u32,                  // Minimum is 0, starts at 0
     pub total_wins: u32,
     pub total_losses: u32,
+    pub win_streak: u32,                // Current win streak (resets on loss)
     pub bump: u8,
 }
 
 impl PlayerProfile {
     pub const MAX_USERNAME_LEN: usize = 32;
     pub const FREE_STARTER_TICKETS: u64 = 10;  // Free tickets for new players
+    pub const BASE_TROPHY_GAIN: u32 = 30;      // Base trophy gain per win
+    pub const TROPHY_LOSS: u32 = 30;           // Trophy loss per loss
+    pub const WIN_REWARD: u64 = 100;           // BUG tokens reward per win
     
     // Calculate space needed for account
     // 8 (discriminator) + 32 (wallet) + 4 + 32 (username) + 1 (has_claimed_starter_pack)
-    // + 8 (gacha_tickets) + 4 (trophies) + 4 (total_wins) + 4 (total_losses) + 1 (bump)
-    pub const LEN: usize = 8 + 32 + 4 + 32 + 1 + 8 + 4 + 4 + 4 + 1;
+    // + 8 (gacha_tickets) + 8 (bug_balance) + 4 (trophies) + 4 (total_wins) + 4 (total_losses) + 4 (win_streak) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 4 + 32 + 1 + 8 + 8 + 4 + 4 + 4 + 4 + 1;
 }
 
 #[account]
@@ -574,6 +808,22 @@ impl PlayerDeck {
     // 8 (discriminator) + 32 (owner) + 1 (deck_index) + 4 + 32 (deck_name) 
     // + 4 + (32 * 10) (card_mints vec) + 1 (is_active) + 1 (bump)
     pub const LEN: usize = 8 + 32 + 1 + 4 + 32 + 4 + (32 * 10) + 1 + 1;
+}
+
+/// Marketplace listing for a card
+#[account]
+pub struct Listing {
+    pub seller: Pubkey,             // Seller wallet
+    pub card_mint: Pubkey,          // NFT mint address
+    pub price: u64,                 // Price in BUG tokens
+    pub is_active: bool,            // true = listed, false = sold/cancelled
+    pub created_at: i64,            // Unix timestamp
+    pub bump: u8,
+}
+
+impl Listing {
+    // 8 (discriminator) + 32 (seller) + 32 (card_mint) + 8 (price) + 1 (is_active) + 8 (created_at) + 1 (bump)
+    pub const LEN: usize = 8 + 32 + 32 + 8 + 1 + 8 + 1;
 }
 
 // ============================================================================
@@ -663,6 +913,18 @@ pub enum GameError {
     
     #[msg("Too many cards in deck (max 10)")]
     TooManyCardsInDeck,
+    
+    #[msg("Invalid price (must be greater than 0)")]
+    InvalidPrice,
+    
+    #[msg("Listing is not active")]
+    ListingNotActive,
+    
+    #[msg("Cannot buy your own card")]
+    CannotBuyOwnCard,
+    
+    #[msg("Invalid amount (must be greater than 0)")]
+    InvalidAmount,
 }
 
 // ============================================================================
@@ -698,6 +960,8 @@ pub struct AddCardCreator<'info> {
     
     pub authority: Signer<'info>,
 }
+
+
 
 #[derive(Accounts)]
 #[instruction(card_type_id: u32)]
@@ -856,6 +1120,50 @@ pub struct AddGachaTickets<'info> {
 }
 
 #[derive(Accounts)]
+pub struct BuyBugTokens<'info> {
+    #[account(
+        seeds = [b"game_config"],
+        bump = game_config.bump
+    )]
+    pub game_config: Account<'info, GameConfig>,
+    
+    #[account(
+        mut,
+        seeds = [b"player_profile", player.key().as_ref()],
+        bump = player_profile.bump
+    )]
+    pub player_profile: Account<'info, PlayerProfile>,
+    
+    /// Treasury to receive SOL
+    /// CHECK: This is the treasury wallet to receive SOL payments
+    #[account(mut)]
+    pub treasury: AccountInfo<'info>,
+    
+    #[account(mut)]
+    pub player: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct BuyGachaTickets<'info> {
+    #[account(
+        seeds = [b"game_config"],
+        bump = game_config.bump
+    )]
+    pub game_config: Account<'info, GameConfig>,
+    
+    #[account(
+        mut,
+        seeds = [b"player_profile", player.key().as_ref()],
+        bump = player_profile.bump
+    )]
+    pub player_profile: Account<'info, PlayerProfile>,
+    
+    pub player: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct RollGacha<'info> {
     #[account(
         seeds = [b"rarity_pool", &[Rarity::Common.to_discriminant()]],
@@ -881,6 +1189,7 @@ pub struct RollGacha<'info> {
 #[derive(Accounts)]
 pub struct PurchasePack<'info> {
     #[account(
+        mut,
         seeds = [b"player_profile", player.key().as_ref()],
         bump = player_profile.bump
     )]
@@ -891,19 +1200,6 @@ pub struct PurchasePack<'info> {
         bump = game_config.bump
     )]
     pub game_config: Account<'info, GameConfig>,
-    
-    #[account(
-        mut,
-        constraint = player_bug_token_account.owner == player.key(),
-        constraint = player_bug_token_account.mint == game_config.bug_token_mint
-    )]
-    pub player_bug_token_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        constraint = treasury_bug_token_account.mint == game_config.bug_token_mint
-    )]
-    pub treasury_bug_token_account: Account<'info, TokenAccount>,
     
     #[account(
         seeds = [b"rarity_pool", &[Rarity::Common.to_discriminant()]],
@@ -926,7 +1222,6 @@ pub struct PurchasePack<'info> {
     #[account(mut)]
     pub player: Signer<'info>,
     
-    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -962,6 +1257,157 @@ pub struct DeleteDeck<'info> {
     pub player: Signer<'info>,
 }
 
+// ============================================================================
+// Marketplace Instruction Contexts
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct ListCard<'info> {
+    #[account(
+        init,
+        payer = seller,
+        space = Listing::LEN,
+        seeds = [b"listing", card_mint.key().as_ref()],
+        bump
+    )]
+    pub listing: Account<'info, Listing>,
+    
+    pub card_mint: Account<'info, Mint>,
+    
+    /// Seller's token account holding the NFT
+    #[account(
+        mut,
+        constraint = seller_token_account.owner == seller.key(),
+        constraint = seller_token_account.mint == card_mint.key(),
+        constraint = seller_token_account.amount == 1 @ GameError::Unauthorized
+    )]
+    pub seller_token_account: Account<'info, TokenAccount>,
+    
+    /// Escrow token account (PDA-based, not ATA)
+    #[account(
+        init,
+        payer = seller,
+        seeds = [b"escrow", card_mint.key().as_ref()],
+        bump,
+        token::mint = card_mint,
+        token::authority = listing,
+    )]
+    pub escrow_token_account: Account<'info, TokenAccount>,
+    
+    #[account(mut)]
+    pub seller: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct CancelListing<'info> {
+    #[account(
+        mut,
+        seeds = [b"listing", card_mint.key().as_ref()],
+        bump = listing.bump,
+        constraint = listing.seller == seller.key() @ GameError::Unauthorized,
+        constraint = listing.is_active @ GameError::ListingNotActive,
+        close = seller  // 关闭账户，租金返还给卖家
+    )]
+    pub listing: Account<'info, Listing>,
+    
+    pub card_mint: Account<'info, Mint>,
+    
+    /// Seller's token account to receive the NFT back
+    #[account(
+        mut,
+        constraint = seller_token_account.owner == seller.key(),
+        constraint = seller_token_account.mint == card_mint.key()
+    )]
+    pub seller_token_account: Account<'info, TokenAccount>,
+    
+    /// Escrow token account (PDA-based, will be closed in instruction)
+    #[account(
+        mut,
+        seeds = [b"escrow", card_mint.key().as_ref()],
+        bump,
+        token::mint = card_mint,
+        token::authority = listing,
+    )]
+    pub escrow_token_account: Account<'info, TokenAccount>,
+    
+    #[account(mut)]
+    pub seller: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct BuyCard<'info> {
+    #[account(
+        mut,
+        seeds = [b"listing", card_mint.key().as_ref()],
+        bump = listing.bump,
+        constraint = listing.is_active @ GameError::ListingNotActive,
+        close = seller  // 关闭账户，租金返还给原卖家
+    )]
+    pub listing: Account<'info, Listing>,
+    
+    /// CHECK: Seller account to receive rent refund
+    #[account(mut, constraint = seller.key() == listing.seller)]
+    pub seller: AccountInfo<'info>,
+    
+    /// Buyer's profile (to deduct BUG)
+    #[account(
+        mut,
+        seeds = [b"player_profile", buyer.key().as_ref()],
+        bump = buyer_profile.bump
+    )]
+    pub buyer_profile: Account<'info, PlayerProfile>,
+    
+    /// Seller's profile (to add BUG)
+    #[account(
+        mut,
+        seeds = [b"player_profile", listing.seller.as_ref()],
+        bump = seller_profile.bump
+    )]
+    pub seller_profile: Account<'info, PlayerProfile>,
+    
+    pub card_mint: Account<'info, Mint>,
+    
+    /// Card instance to update owner
+    #[account(
+        mut,
+        seeds = [b"card_instance", card_mint.key().as_ref()],
+        bump = card_instance.bump
+    )]
+    pub card_instance: Account<'info, CardInstance>,
+    
+    /// Escrow token account (PDA-based, will be closed in instruction)
+    #[account(
+        mut,
+        seeds = [b"escrow", card_mint.key().as_ref()],
+        bump,
+        token::mint = card_mint,
+        token::authority = listing,
+    )]
+    pub escrow_token_account: Account<'info, TokenAccount>,
+    
+    /// Buyer's token account to receive the NFT
+    #[account(
+        init_if_needed,
+        payer = buyer,
+        associated_token::mint = card_mint,
+        associated_token::authority = buyer,
+    )]
+    pub buyer_token_account: Account<'info, TokenAccount>,
+    
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 #[derive(Accounts)]
 pub struct RecordMatchResult<'info> {
     #[account(
@@ -985,21 +1431,7 @@ pub struct RecordMatchResult<'info> {
     )]
     pub game_config: Account<'info, GameConfig>,
     
-    #[account(
-        mut,
-        constraint = winner_bug_token_account.owner == winner_profile.wallet,
-        constraint = winner_bug_token_account.mint == game_config.bug_token_mint
-    )]
-    pub winner_bug_token_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        constraint = treasury_bug_token_account.mint == game_config.bug_token_mint
-    )]
-    pub treasury_bug_token_account: Account<'info, TokenAccount>,
-    
     pub authority: Signer<'info>,
-    pub token_program: Program<'info, Token>,
 }
 
 // ============================================================================
