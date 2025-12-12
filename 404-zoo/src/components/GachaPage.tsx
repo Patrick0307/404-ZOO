@@ -179,7 +179,7 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
             {/* Card back */}
             <div className="card-back">
               <div className="card-back-content">
-                <div className="card-back-logo">!</div>
+                <div className="card-back-logo">⚠</div>
                 <div className="card-back-text">ERROR</div>
               </div>
             </div>
