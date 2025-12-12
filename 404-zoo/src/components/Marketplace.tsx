@@ -15,7 +15,7 @@ function Marketplace() {
 
   return (
     <div className="marketplace-container">
-      {/* 顶部标签栏 */}
+      {/* Top Tab Bar */}
       <div className="market-tabs">
         <button className="market-tab active">MARKET_MODE</button>
         <button className="market-tab">MONSTER_CARDS</button>
@@ -25,7 +25,7 @@ function Marketplace() {
       </div>
 
       <div className="market-content">
-        {/* 左侧过滤器 */}
+        {/* Left Side Filter */}
         <div className="market-sidebar">
           <div className="filter-section">
             <div className="filter-header">FILTER_MODE</div>
@@ -70,7 +70,7 @@ function Marketplace() {
           </div>
         </div>
 
-        {/* 中间卡片网格 */}
+        {/* Center Card Grid */}
         <div className="market-grid">
           {mockListings.map(card => (
             <div 
@@ -90,7 +90,7 @@ function Marketplace() {
           ))}
         </div>
 
-        {/* 右侧信息面板 */}
+        {/* Right Info Panel */}
         <div className="market-info-panel">
           <div className="info-header">ITEM_INFO</div>
           <div className="info-name">{selectedCard.name}</div>

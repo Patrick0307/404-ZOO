@@ -83,7 +83,8 @@
   gap: 15px;
   flex-shrink: 0;
   width: 350px;
-  justify-content: flex-end;
+  margin-left: 40px;
+  margin-right: 40px;
 }
 
 .user-details {
@@ -160,6 +161,7 @@
   .user-info-section {
     gap: 10px;
     width: 280px;
+    margin-right: 3px;
   }
   
   .user-name {
@@ -201,6 +203,7 @@
   
   .user-info-section {
     gap: 10px;
+    margin-right: 2px;
   }
   
   .user-name {
@@ -840,6 +843,7 @@
   .user-info-section {
     gap: 8px;
     width: 240px;
+    margin-right: 2px;
   }
   
   .user-name {

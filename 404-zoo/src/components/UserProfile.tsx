@@ -19,7 +19,7 @@ function UserProfile({ walletAddress, onDisconnect, username, trophies, wins }: 
         onClick={() => setShowDropdown(!showDropdown)}
       >
         <div className="avatar">
-          <span>🦊</span>
+          <span>USER</span>
         </div>
         <div className="user-info">
           <span className="username">{username}</span>
@@ -31,7 +31,7 @@ function UserProfile({ walletAddress, onDisconnect, username, trophies, wins }: 
         <div className="profile-dropdown">
           <div className="dropdown-header">
             <div className="avatar large">
-              <span>🦊</span>
+              <span>USER</span>
             </div>
             <div className="dropdown-user-info">
               <span className="username">{username}</span>
@@ -40,24 +40,24 @@ function UserProfile({ walletAddress, onDisconnect, username, trophies, wins }: 
           </div>
           <div className="dropdown-stats">
             <div className="stat-item">
-              <span className="stat-value">🏆 {trophies}</span>
-              <span className="stat-label">奖杯</span>
+              <span className="stat-value">{trophies}</span>
+              <span className="stat-label">Trophies</span>
             </div>
             <div className="stat-item">
               <span className="stat-value">{wins}</span>
-              <span className="stat-label">胜场</span>
+              <span className="stat-label">Wins</span>
             </div>
             <div className="stat-item">
               <span className="stat-value">0</span>
-              <span className="stat-label">卡片</span>
+              <span className="stat-label">Cards</span>
             </div>
           </div>
           <div className="dropdown-actions">
             <button className="dropdown-btn">
-              <span>⚙️</span> 设置
+              <span>SETTINGS</span>
             </button>
             <button className="dropdown-btn disconnect" onClick={onDisconnect}>
-              <span>🚪</span> 断开连接
+              <span>DISCONNECT</span>
             </button>
           </div>
         </div>

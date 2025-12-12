@@ -24,7 +24,7 @@ function Pokedex() {
   const loadCards = async () => {
     setLoading(true)
     try {
-      // 使用缓存的卡片数据（已经按稀有度排序）
+      // Use cached card data (already sorted by rarity)
       const templates = await getCachedCards()
       setCards(templates)
       console.log('Loaded cards from cache:', templates.length)
@@ -44,12 +44,12 @@ function Pokedex() {
     }
   }
 
-  const getTraitEmoji = (traitType: number): string => {
+  const getTraitIcon = (traitType: number): string => {
     switch (traitType) {
-      case 0: return '⚔️'
-      case 1: return '🏹'
-      case 2: return '🗡️'
-      default: return '❓'
+      case 0: return 'ATK'
+      case 1: return 'RNG'
+      case 2: return 'MEL'
+      default: return 'UNK'
     }
   }
 
@@ -66,7 +66,7 @@ function Pokedex() {
     setTimeout(() => {
       setSelectedCard(null)
       setIsClosing(false)
-    }, 500) // 500ms 关闭动画
+    }, 500) // 500ms close animation
   }
 
   return (
@@ -114,7 +114,7 @@ function Pokedex() {
                     onError={() => handleImageError(card.cardTypeId)}
                   />
                 ) : (
-                  <span className="fallback-icon">{getTraitEmoji(card.traitType)}</span>
+                  <span className="fallback-icon">{getTraitIcon(card.traitType)}</span>
                 )}
               </div>
               <span className="pokedex-name-cyber">{card.name}</span>
@@ -150,7 +150,7 @@ function Pokedex() {
                       />
                     ) : (
                       <div className="mtg-fallback-image">
-                        <span className="fallback-icon-large">{getTraitEmoji(selectedCard.traitType)}</span>
+                        <span className="fallback-icon-large">{getTraitIcon(selectedCard.traitType)}</span>
                       </div>
                     )}
                   </div>

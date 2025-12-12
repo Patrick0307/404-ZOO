@@ -13,19 +13,19 @@ interface BattleProps {
   playerProfile: PlayerProfile | null
 }
 
-// 战斗模式类型
-type BattleMode = 'lobby' | 'arena' // 可以扩展其他模式
+// Battle mode types
+type BattleMode = 'lobby' | 'arena' // Can extend other modes
 
 function Battle({ onBack, playerProfile }: BattleProps) {
-  // 基础状态
+  // Basic state
   const [savedDecks, setSavedDecks] = useState<PlayerDeck[]>([])
   const [selectedDeck, setSelectedDeck] = useState<PlayerDeck | null>(null)
 
   
-  // 当前模式
+  // Current mode
   const [currentMode, setCurrentMode] = useState<BattleMode>('lobby')
 
-  // 加载卡组 - 优先使用缓存
+  // Load decks - prioritize cache
   useEffect(() => {
     if (playerProfile) {
       loadSavedDecks()
@@ -35,11 +35,11 @@ function Battle({ onBack, playerProfile }: BattleProps) {
   const loadSavedDecks = async () => {
     if (!playerProfile) return
     
-    // 优先使用缓存
+    // Prioritize cache
     if (hasPlayerDataCache()) {
       const cachedDecks = getCachedPlayerDecks()
       if (cachedDecks.length > 0) {
-        console.log('📦 Using cached decks:', cachedDecks.length)
+        console.log('Using cached decks:', cachedDecks.length)
         setSavedDecks(cachedDecks)
         if (!selectedDeck) {
           setSelectedDeck(cachedDecks[0])
@@ -48,9 +48,9 @@ function Battle({ onBack, playerProfile }: BattleProps) {
       }
     }
     
-    // 没有缓存，从链上加载
+    // No cache, load from chain
     try {
-      console.log('🔄 Loading decks from chain...')
+      console.log('Loading decks from chain...')
       const decks = await getPlayerDecks(playerProfile.wallet)
       setSavedDecks(decks)
       if (decks.length > 0 && !selectedDeck) {
@@ -61,97 +61,95 @@ function Battle({ onBack, playerProfile }: BattleProps) {
     }
   }
 
-  // 开始 Arena 战斗
+  // Start Arena battle
   const startArenaBattle = () => {
     if (!selectedDeck) {
-      alert('请先选择一个卡组！')
+      alert('Please select a deck first!')
       return
     }
     setCurrentMode('arena')
   }
 
-  // 返回大厅
+  // Return to lobby
   const returnToLobby = () => {
     setCurrentMode('lobby')
   }
 
 
-  // 渲染大厅
+  // Render lobby
   const renderLobby = () => (
     <div className="battle-lobby">
-      <div className="lobby-header">
-        <button className="back-btn" onClick={onBack}>← 返回</button>
-        <h2>⚔️ 战斗模式</h2>
-      </div>
-      
-      {/* 卡组选择 */}
-      <div className="deck-selection">
-        <h3>选择出战卡组</h3>
-        {savedDecks.length === 0 ? (
-          <div className="no-deck">请先在「组队」页面创建卡组</div>
-        ) : (
-          <div className="deck-list">
-            {savedDecks.map(deck => (
-              <div
-                key={deck.deckIndex}
-                className={`deck-item ${selectedDeck?.deckIndex === deck.deckIndex ? 'selected' : ''}`}
-                onClick={() => setSelectedDeck(deck)}
-              >
-                <span className="deck-name">{deck.deckName}</span>
-                <span className="deck-count">{deck.cardMints.length}张</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 模式选择区域 */}
+      {/* Left side - Mode Selection */}
       <div className="battle-mode-selection">
-        <h3>选择战斗模式</h3>
+        <h3>Please Choose Your Mode</h3>
         
         {/* Arena 模式 */}
         <div className="mode-card arena-mode" onClick={startArenaBattle}>
-          <div className="mode-icon">🏟️</div>
+          {/* <div className="mode-icon">🏟️</div> */}
           <div className="mode-info">
-            <h4>Arena 排位赛</h4>
-            <p>自走棋玩法，从卡组抽卡组建阵容</p>
+            <h4>Arena Rank Mode</h4>
+            <p>Auto Chess gameplay, drawing cards from the deck to build your lineup.</p>
           </div>
         </div>
 
-        {/* 其他模式占位 - 可以后续扩展 */}
+        {/* Other mode placeholders - can be extended later */}
         <div className="mode-card other-mode disabled">
-          <div className="mode-icon">🎯</div>
+          {/* <div className="mode-icon">🎯</div> */}
           <div className="mode-info">
-            <h4>快速对战</h4>
-            <p>即将推出...</p>
+            <h4>Fast Mode</h4>
+            <p>Coming Soon...</p>
           </div>
-          <div className="coming-soon">敬请期待</div>
+          <div className="coming-soon">Stay tuned</div>
         </div>
 
         <div className="mode-card other-mode disabled">
-          <div className="mode-icon">🏆</div>
+          {/* <div className="mode-icon">🏆</div> */}
           <div className="mode-info">
-            <h4>锦标赛</h4>
-            <p>即将推出...</p>
+            <h4>Championship</h4>
+            <p>Coming Soon...</p>
           </div>
-          <div className="coming-soon">敬请期待</div>
+          <div className="coming-soon">Stay tuned</div>
         </div>
       </div>
 
-      {/* 游戏规则 */}
-      <div className="battle-rules">
-        <h4>Arena 规则</h4>
-        <ul>
-          <li>从10张卡组中抽卡组建战斗阵容</li>
-          <li>3个相同单位可合成更高星级</li>
-          <li>每回合30秒备战时间</li>
-          <li>失败扣血 = 回合数²</li>
-        </ul>
+      {/* Right side - Deck Selection and Rules Grid */}
+      <div className="battle-sidebar">
+        {/* Deck Selection */}
+        <div className="deck-selection">
+          <h3>Choose your deck</h3>
+          {savedDecks.length === 0 ? (
+            <div className="no-deck">Please create a deck in the Team page first</div>
+          ) : (
+            <div className="deck-list">
+              {savedDecks.map(deck => (
+                <div
+                  key={deck.deckIndex}
+                  className={`deck-item ${selectedDeck?.deckIndex === deck.deckIndex ? 'selected' : ''}`}
+                  onClick={() => setSelectedDeck(deck)}
+                >
+                  <span className="deck-name">{deck.deckName}</span>
+                  <span className="deck-count">{deck.cardMints.length} Cards</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Game Rules */}
+        <div className="battle-rules">
+          <h4>Arena Rules</h4>
+          <ul>
+            <li>Draw cards from a 10-card deck to build your battle lineup</li>
+            <li>3 identical units can be combined to create a higher-star unit</li>
+            <li>30 seconds of preparation time per turn</li>
+            <li>Damage deducted upon defeat = number of turns²</li>
+          </ul>
+        </div>
       </div>
     </div>
   )
 
-  // 根据当前模式渲染
+  // Render based on current mode
   if (currentMode === 'arena' && selectedDeck) {
     return (
       <ArenaBattle
@@ -164,6 +162,13 @@ function Battle({ onBack, playerProfile }: BattleProps) {
 
   return (
     <div className="battle-container">
+      <div className="battle-container-bg">
+        <img src="/market-bg.png" alt="" className="background-image" />
+      </div>
+      <div className="lobby-header">
+        <button className="back-btn" onClick={onBack}>Back</button>
+        <h2>Fighting Mode</h2>
+      </div>
       {renderLobby()}
     </div>
   )

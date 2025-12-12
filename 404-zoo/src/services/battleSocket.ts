@@ -93,7 +93,7 @@ class BattleSocketService {
         this.ws = new WebSocket(WS_SERVER_URL)
         
         this.ws.onopen = () => {
-          console.log('✅ Battle WebSocket connected')
+          console.log('Battle WebSocket connected')
           this.reconnectAttempts = 0
         }
         
@@ -151,7 +151,7 @@ class BattleSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }))
     } else {
-      console.warn('⚠️ WebSocket not connected')
+      console.warn('WebSocket not connected')
     }
   }
 
@@ -229,7 +229,7 @@ class BattleSocketService {
     }
     
     this.reconnectAttempts++
-    console.log(`🔄 Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
+    console.log(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
     
     setTimeout(() => {
       this.connect().catch(() => {
