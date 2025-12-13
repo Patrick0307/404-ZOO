@@ -1058,3 +1058,38 @@
   background: rgba(255, 255, 255, 0.2);
   border-radius: 2px;
 }
+
+/* Trophy and Reward Display */
+.arena-gameover-screen .trophy-change {
+  font-size: 24px;
+  margin: 10px 0;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.arena-gameover-screen .trophy-change.win {
+  color: #00ff00;
+  text-shadow: 
+    0 0 20px rgba(0, 255, 0, 0.8),
+    0 0 40px rgba(0, 255, 0, 0.5);
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.arena-gameover-screen .trophy-change.lose {
+  color: #ff4444;
+  text-shadow: 
+    0 0 20px rgba(255, 68, 68, 0.8),
+    0 0 40px rgba(255, 68, 68, 0.5);
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+}
+
+.arena-gameover-screen .bug-reward {
+  font-size: 20px;
+  color: #ffcc00;
+  text-shadow: 
+    0 0 15px rgba(255, 204, 0, 0.8),
+    0 0 30px rgba(255, 204, 0, 0.5);
+  margin-top: 8px;
+}

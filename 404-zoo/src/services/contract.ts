@@ -381,6 +381,40 @@ export async function checkPlayerRegistered(
   return profile !== null
 }
 
+// 获取所有玩家的 Profile（用于排行榜）
+export async function getAllPlayerProfiles(): Promise<PlayerProfile[]> {
+  try {
+    // PlayerProfile::LEN = 8 + 32 + 4 + 32 + 1 + 8 + 8 + 4 + 4 + 4 + 4 + 1 = 110
+    const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+      filters: [
+        { dataSize: 110 }, // PlayerProfile account size
+      ],
+    })
+
+    const profiles: PlayerProfile[] = []
+    for (const { account, pubkey } of accounts) {
+      try {
+        // 从账户数据中读取 wallet
+        const walletBytes = account.data.slice(8, 40)
+        const wallet = new PublicKey(walletBytes)
+        const profile = parsePlayerProfile(Buffer.from(account.data), wallet)
+        profiles.push(profile)
+      } catch (e) {
+        console.error('Error parsing player profile:', pubkey.toBase58(), e)
+      }
+    }
+
+    // 按 trophies 降序排序
+    profiles.sort((a, b) => b.trophies - a.trophies)
+    
+    console.log(`Loaded ${profiles.length} player profiles for leaderboard`)
+    return profiles
+  } catch (error) {
+    console.error('Error getting all player profiles:', error)
+    return []
+  }
+}
+
 // 获取 Phantom provider
 function getPhantomProvider(): PhantomWallet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

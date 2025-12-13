@@ -1,11 +1,12 @@
 import http from 'http'
 import { WebSocketServer } from 'ws'
 import { v4 as uuidv4 } from 'uuid'
+import { recordMatchResult } from './contract.js'
 
 const PORT = process.env.PORT || 8080
 
 // 存储
-const players = new Map() // odId -> { odId, ws, name, rating, deck, status, roomId }
+const players = new Map() // odId -> { odId, ws, name, rating, deck, status, roomId, wallet }
 const matchQueue = [] // 等待匹配的玩家
 const rooms = new Map() // roomId -> { id, players: [p1, p2], state }
 
@@ -38,6 +39,7 @@ wss.on('connection', (ws) => {
     deck: null,
     status: 'idle',
     roomId: null,
+    wallet: null, // Solana wallet address for trophy updates
   })
 
   ws.on('message', (data) => {
@@ -86,6 +88,7 @@ function handleMessage(odId, message) {
     case 'set_profile':
       player.name = payload.name || 'Unknown'
       player.rating = payload.rating || 1000
+      player.wallet = payload.wallet || null // Store wallet address for trophy updates
       break
 
     case 'start_match':
@@ -160,7 +163,7 @@ function createRoom(p1Id, p2Id) {
     state: {
       round: 1,
       phase: 'preparation',
-      timer: 30,
+      timer: 5,
       playerStates: {
         [p1Id]: { hp: 100, gold: 10, units: [], bench: [], ready: false, battleDone: false },
         [p2Id]: { hp: 100, gold: 10, units: [], bench: [], ready: false, battleDone: false },
@@ -206,7 +209,7 @@ function startPreparationTimer(roomId) {
     room.timerInterval = null
   }
 
-  room.state.timer = 30
+  room.state.timer = 5
   room.state.phase = 'preparation'
   
   // 重置战斗完成标记和单位状态
@@ -224,7 +227,7 @@ function startPreparationTimer(roomId) {
   broadcastToRoom(roomId, 'round_start', {
     round: room.state.round,
     phase: 'preparation',
-    timer: 30,
+    timer: 5,
   })
 
   room.timerInterval = setInterval(() => {
@@ -631,9 +634,38 @@ async function executeBattleOnServer(roomId) {
 
   // 检查游戏是否结束
   if (p1State.hp <= 0 || p2State.hp <= 0) {
-    const winner = p1State.hp > 0 ? p1Id : p2Id
+    const winnerId = p1State.hp > 0 ? p1Id : p2Id
+    const loserId = p1State.hp > 0 ? p2Id : p1Id
+    const winner = players.get(winnerId)
+    const loser = players.get(loserId)
+    
+    // Record match result on blockchain (async, don't block)
+    console.log(`📊 [executeBattle] Game over - Winner: ${winner?.name} (wallet: ${winner?.wallet || 'N/A'}), Loser: ${loser?.name} (wallet: ${loser?.wallet || 'N/A'})`)
+    if (winner?.wallet && loser?.wallet) {
+      recordMatchResult(winner.wallet, loser.wallet)
+        .then(result => {
+          if (result.success) {
+            console.log(`🏆 Trophy updated on-chain: ${winner.name} +trophy, ${loser.name} -trophy`)
+            // Notify players about trophy update
+            if (winner?.ws) {
+              send(winner.ws, 'trophy_updated', { type: 'win', txId: result.txId })
+            }
+            if (loser?.ws) {
+              send(loser.ws, 'trophy_updated', { type: 'lose', txId: result.txId })
+            }
+          } else {
+            console.warn(`⚠️ Failed to update trophies: ${result.error}`)
+          }
+        })
+        .catch(err => console.error('Trophy update error:', err))
+    } else {
+      console.warn('⚠️ Cannot update trophies: wallet addresses not available')
+    }
+    
     broadcastToRoom(roomId, 'game_over', {
-      winner: players.get(winner)?.name,
+      winner: winner?.name,
+      winnerId: winnerId,
+      loserId: loserId,
       p1HP: p1State.hp,
       p2HP: p2State.hp,
     })
@@ -699,9 +731,36 @@ async function finishBattle(roomId, p1Units, p2Units, p1Result, p2Result, curren
 
   // 检查游戏是否结束
   if (p1State.hp <= 0 || p2State.hp <= 0) {
-    const winner = p1State.hp > 0 ? p1Id : p2Id
+    const winnerId = p1State.hp > 0 ? p1Id : p2Id
+    const loserId = p1State.hp > 0 ? p2Id : p1Id
+    const winner = players.get(winnerId)
+    const loser = players.get(loserId)
+    
+    // Record match result on blockchain (async, don't block)
+    if (winner?.wallet && loser?.wallet) {
+      recordMatchResult(winner.wallet, loser.wallet)
+        .then(result => {
+          if (result.success) {
+            console.log(`🏆 Trophy updated on-chain: ${winner.name} +trophy, ${loser.name} -trophy`)
+            if (winner?.ws) {
+              send(winner.ws, 'trophy_updated', { type: 'win', txId: result.txId })
+            }
+            if (loser?.ws) {
+              send(loser.ws, 'trophy_updated', { type: 'lose', txId: result.txId })
+            }
+          } else {
+            console.warn(`⚠️ Failed to update trophies: ${result.error}`)
+          }
+        })
+        .catch(err => console.error('Trophy update error:', err))
+    } else {
+      console.warn('⚠️ Cannot update trophies: wallet addresses not available')
+    }
+    
     broadcastToRoom(roomId, 'game_over', {
-      winner: players.get(winner)?.name,
+      winner: winner?.name,
+      winnerId: winnerId,
+      loserId: loserId,
       p1HP: p1State.hp,
       p2HP: p2State.hp,
     })

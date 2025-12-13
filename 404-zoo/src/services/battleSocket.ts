@@ -156,8 +156,8 @@ class BattleSocketService {
   }
 
   // 设置玩家信息
-  setProfile(name: string, rating: number) {
-    this.send('set_profile', { name, rating })
+  setProfile(name: string, rating: number, wallet?: string) {
+    this.send('set_profile', { name, rating, wallet })
   }
 
   // 开始匹配

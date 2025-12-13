@@ -181,3 +181,24 @@
   text-shadow: 0 0 10px #ff3366;
   font-size: 26px;
 }
+
+/* Loading and Empty States */
+.leaderboard-loading,
+.leaderboard-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  font-size: 20px;
+  color: rgba(0, 255, 255, 0.6);
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.leaderboard-loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}

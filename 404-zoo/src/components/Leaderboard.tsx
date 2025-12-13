@@ -1,17 +1,52 @@
+import { useState, useEffect } from 'react'
 import '../css/Leaderboard.css'
+import { getAllPlayerProfiles } from '../services/contract'
 
-const mockPlayers = [
-  { rank: 1, name: 'DragonMaster', wallet: '0x7a...3f', wins: 156, score: 2850 },
-  { rank: 2, name: 'PhoenixKing', wallet: '0x4b...9c', wins: 142, score: 2720 },
-  { rank: 3, name: 'ShadowHunter', wallet: '0x2d...1e', wins: 138, score: 2680 },
-  { rank: 4, name: 'IceQueen', wallet: '0x8f...7a', wins: 125, score: 2540 },
-  { rank: 5, name: 'ThunderGod', wallet: '0x1c...5d', wins: 118, score: 2480 },
-  { rank: 6, name: 'FireLord', wallet: '0x9e...2b', wins: 112, score: 2420 },
-  { rank: 7, name: 'WindWalker', wallet: '0x3a...8f', wins: 105, score: 2350 },
-  { rank: 8, name: 'EarthShaker', wallet: '0x6d...4c', wins: 98, score: 2280 },
-]
+interface LeaderboardPlayer {
+  rank: number
+  name: string
+  wallet: string
+  wins: number
+  losses: number
+  trophies: number
+}
 
 function Leaderboard() {
+  const [players, setPlayers] = useState<LeaderboardPlayer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'trophy' | 'wins'>('trophy')
+
+  useEffect(() => {
+    loadLeaderboard()
+  }, [])
+
+  const loadLeaderboard = async () => {
+    setLoading(true)
+    try {
+      const profiles = await getAllPlayerProfiles()
+      const leaderboardData: LeaderboardPlayer[] = profiles.map((p, index) => ({
+        rank: index + 1,
+        name: p.username || 'Unknown',
+        wallet: p.wallet.toBase58().slice(0, 4) + '...' + p.wallet.toBase58().slice(-4),
+        wins: p.totalWins,
+        losses: p.totalLosses,
+        trophies: p.trophies,
+      }))
+      setPlayers(leaderboardData)
+    } catch (error) {
+      console.error('Failed to load leaderboard:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getSortedPlayers = () => {
+    if (activeTab === 'wins') {
+      return [...players].sort((a, b) => b.wins - a.wins).map((p, i) => ({ ...p, rank: i + 1 }))
+    }
+    return players // Already sorted by trophies
+  }
+
   const getRankClass = (rank: number) => {
     if (rank === 1) return 'rank-top-1'
     if (rank === 2) return 'rank-top-2'
@@ -23,37 +58,57 @@ function Leaderboard() {
     return `#${rank.toString().padStart(2, '0')}`
   }
 
+  const sortedPlayers = getSortedPlayers()
+
   return (
     <div className="leaderboard-container">
       <div className="leaderboard-title">RANK_SYSTEM // TOP_PLAYERS</div>
 
       <div className="leaderboard-tabs-cyber">
-        <button className="tab-cyber active">SCORE_RANK</button>
-        <button className="tab-cyber">WIN_RANK</button>
-        <button className="tab-cyber">COLLECTION_RANK</button>
+        <button 
+          className={`tab-cyber ${activeTab === 'trophy' ? 'active' : ''}`}
+          onClick={() => setActiveTab('trophy')}
+        >
+          TROPHY_RANK
+        </button>
+        <button 
+          className={`tab-cyber ${activeTab === 'wins' ? 'active' : ''}`}
+          onClick={() => setActiveTab('wins')}
+        >
+          WIN_RANK
+        </button>
+        <button className="tab-cyber" onClick={loadLeaderboard}>
+          REFRESH
+        </button>
       </div>
 
-      <div className="leaderboard-list-cyber">
-        {mockPlayers.map(player => (
-          <div key={player.rank} className={`leaderboard-row ${getRankClass(player.rank)}`}>
-            <div className="rank-number">{getRankDisplay(player.rank)}</div>
-            <div className="player-data">
-              <div className="player-name-cyber">{player.name}</div>
-              <div className="player-wallet-cyber">{player.wallet}</div>
-            </div>
-            <div className="player-stats-cyber">
-              <div className="stat-item">
-                <span className="stat-label-cyber">WINS:</span>
-                <span className="stat-value-cyber">{player.wins}</span>
+      {loading ? (
+        <div className="leaderboard-loading">Loading...</div>
+      ) : sortedPlayers.length === 0 ? (
+        <div className="leaderboard-empty">No players found</div>
+      ) : (
+        <div className="leaderboard-list-cyber">
+          {sortedPlayers.map(player => (
+            <div key={player.wallet} className={`leaderboard-row ${getRankClass(player.rank)}`}>
+              <div className="rank-number">{getRankDisplay(player.rank)}</div>
+              <div className="player-data">
+                <div className="player-name-cyber">{player.name}</div>
+                <div className="player-wallet-cyber">{player.wallet}</div>
               </div>
-              <div className="stat-item">
-                <span className="stat-label-cyber">SCORE:</span>
-                <span className="stat-value-cyber score-highlight">{player.score}</span>
+              <div className="player-stats-cyber">
+                <div className="stat-item">
+                  <span className="stat-label-cyber">WINS:</span>
+                  <span className="stat-value-cyber">{player.wins}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label-cyber">🏆:</span>
+                  <span className="stat-value-cyber score-highlight">{player.trophies}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
