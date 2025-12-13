@@ -298,6 +298,13 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         setGamePhase('gameover')
         break
       }
+      
+      case 'trophy_updated': {
+        const payload = message.payload as { type: 'win' | 'lose', txId?: string }
+        console.log(`🏆 Trophy updated on blockchain: ${payload.type}, tx: ${payload.txId}`)
+        // Trophy update is handled by the contract, player profile will be refreshed when returning to lobby
+        break
+      }
     }
   }, [myPlayerId, playerWinStreak])
 
@@ -418,7 +425,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         
         battleSocket.setProfile(
           playerProfileRef.current?.username || 'Player',
-          playerProfileRef.current?.trophies || 1000
+          playerProfileRef.current?.trophies || 1000,
+          playerProfileRef.current?.wallet?.toBase58()
         )
         
         unsubscribeRef.current = battleSocket.onMessage((message) => {
@@ -923,7 +931,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   // 渲染游戏结束
   const renderGameOver = () => {
     const isWinner = playerHP > 0
-    const trophyGain = isWinner ? 30 : 0
+    // Trophy calculation matches contract: BASE (30) + win_streak for winner, -30 for loser
+    const trophyChange = isWinner ? 30 + maxWinStreak : -30
     
     return (
       <div className="arena-gameover-screen">
@@ -931,7 +940,10 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         <div className="final-stats">
           <div>Lasted {round} Rounds</div>
           <div>Highest Winning Streak: {maxWinStreak}</div>
-          {isWinner && <div className="trophy-gain">🏆 +{trophyGain} Trophy</div>}
+          <div className={`trophy-change ${isWinner ? 'win' : 'lose'}`}>
+            🏆 {trophyChange > 0 ? '+' : ''}{trophyChange} Trophy
+          </div>
+          {isWinner && <div className="bug-reward">🪲 +100 BUG</div>}
         </div>
         <button className="return-btn" onClick={returnToLobby}>Return to Lobby</button>
       </div>
