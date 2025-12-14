@@ -109,6 +109,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const selectedDeckRef = useRef(selectedDeck)
   const playerProfileRef = useRef(playerProfile)
   const playerUnitsRef = useRef<BattleUnit[]>([])
+  const playerBenchRef = useRef<BattleUnit[]>([])
   const opponentUnitsRef = useRef<BattleUnit[]>([])
   const roundRef = useRef(round)
   const preBattleUnitsRef = useRef<BattleUnit[]>([])
@@ -122,6 +123,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   useEffect(() => { playerHPRef.current = playerHP }, [playerHP])
   useEffect(() => { playerProfileRef.current = playerProfile }, [playerProfile])
   useEffect(() => { playerUnitsRef.current = playerUnits }, [playerUnits])
+  useEffect(() => { playerBenchRef.current = playerBench }, [playerBench])
   useEffect(() => { opponentUnitsRef.current = opponentUnits }, [opponentUnits])
   useEffect(() => { roundRef.current = round }, [round])
 
@@ -161,12 +163,30 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         setRoundResult(null)
         setGamePhase('preparation')
         
-        // Restore unit health
-        const savedUnits = preBattleUnitsRef.current
-        if (savedUnits.length > 0) {
-          const restoredUnits = savedUnits.map(u => ({ ...u, health: u.maxHealth }))
+        // Restore unit health - use current playerUnitsRef (server now preserves units)
+        const currentUnits = playerUnitsRef.current
+        if (currentUnits.length > 0) {
+          const restoredUnits = currentUnits.map(u => ({ ...u, health: u.maxHealth }))
           setPlayerUnits(restoredUnits)
           playerUnitsRef.current = restoredUnits
+          
+          // Sync restored units to server (inline conversion to avoid closure issues)
+          if (wsConnectedRef.current) {
+            const unitToData = (u: BattleUnit): BattleUnitData => ({
+              id: u.id,
+              cardTypeId: u.cardTypeId,
+              name: u.name,
+              attack: u.attack,
+              health: u.health,
+              maxHealth: u.maxHealth,
+              star: u.star,
+              position: u.position,
+            })
+            battleSocket.placeUnit(
+              restoredUnits.map(unitToData),
+              playerBenchRef.current.map(unitToData)
+            )
+          }
         }
         break
       }
@@ -178,10 +198,30 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       }
       
       case 'battle_start': {
-        console.log('Battle starting from server')
+        const payload = message.payload as { round: number; p1Units: BattleUnitData[]; p2Units: BattleUnitData[] }
+        console.log('Battle starting from server', payload)
         
         // Save pre-battle state
         preBattleUnitsRef.current = playerUnitsRef.current.map(u => ({ ...u }))
+        
+        // Set opponent units from server data
+        ;(async () => {
+          const allTemplates = await getCachedCards()
+          const oppUnitsData = myPlayerId === 'p1' ? payload.p2Units : payload.p1Units
+          
+          const oppUnits: BattleUnit[] = (oppUnitsData || []).map(u => {
+            const template = allTemplates.find(t => t.cardTypeId === u.cardTypeId)
+            return {
+              ...u,
+              maxHealth: u.maxHealth || u.health,
+              rarity: template?.rarity ?? Rarity.Common,
+              traitType: template?.traitType ?? 0,
+              imageUri: template ? getImageUrl(template.imageUri) : '',
+            }
+          })
+          
+          setOpponentUnits(oppUnits)
+        })()
         
         setBattleLog([])
         setGamePhase('battle')
@@ -742,13 +782,13 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     )
   }
 
-  // 渲染战场格子 - 三列两行布局 (2x3)
-  // 玩家: [3][4][5] / [0][1][2]
-  // 对手(镜像): [5][4][3] / [2][1][0]
+  // 渲染战场格子 - 两列三行布局 (3x2)
+  // 玩家: [4][1] / [5][2] / [6][3] (后排在左，前排在右)
+  // 对手(镜像): [1][4] / [2][5] / [3][6] (前排在左，后排在右)
   const renderBattleGrid = (units: BattleUnit[], isPlayer: boolean) => {
     const rows = isPlayer
-      ? [[3, 4, 5], [0, 1, 2]]  // 玩家: 上排345, 下排012
-      : [[5, 4, 3], [2, 1, 0]] // 对手镜像: 上排543, 下排210
+      ? [[3, 0], [4, 1], [5, 2]]  // 玩家: 后排(3,4,5)在左，前排(0,1,2)在右
+      : [[0, 3], [1, 4], [2, 5]] // 对手镜像: 前排在左，后排在右
     return (
       <div className={`arena-battle-grid ${isPlayer ? 'player' : 'opponent'}`}>
         {rows.map((row, i) => (
@@ -931,15 +971,18 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   // 渲染游戏结束
   const renderGameOver = () => {
     const isWinner = playerHP > 0
-    // Trophy calculation matches contract: BASE (30) + win_streak for winner, -30 for loser
-    const trophyChange = isWinner ? 30 + maxWinStreak : -30
+    // Trophy is calculated on-chain based on player's blockchain winStreak
+    // Winner: +30 + (blockchain winStreak + 1) because contract increments first
+    // Loser: -30 (fixed)
+    const currentWinStreak = playerProfile?.winStreak ?? 0
+    const trophyChange = isWinner ? 30 + (currentWinStreak + 1) : -30
     
     return (
       <div className="arena-gameover-screen">
         <h2>{isWinner ? 'Victory！' : 'Defeat'}</h2>
         <div className="final-stats">
           <div>Lasted {round} Rounds</div>
-          <div>Highest Winning Streak: {maxWinStreak}</div>
+          <div>Win Streak: {isWinner ? currentWinStreak + 1 : 0}</div>
           <div className={`trophy-change ${isWinner ? 'win' : 'lose'}`}>
             🏆 {trophyChange > 0 ? '+' : ''}{trophyChange} Trophy
           </div>

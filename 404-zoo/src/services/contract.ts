@@ -288,6 +288,7 @@ export interface PlayerProfile {
   trophies: number
   totalWins: number
   totalLosses: number
+  winStreak: number   // 当前连胜数（用于计算奖杯奖励）
 }
 
 // 解析 PlayerProfile 账户数据
@@ -338,6 +339,10 @@ function parsePlayerProfile(data: Buffer, wallet: PublicKey): PlayerProfile {
 
   // Read total_losses (4 bytes)
   const totalLosses = data.readUInt32LE(offset)
+  offset += 4
+
+  // Read win_streak (4 bytes)
+  const winStreak = data.readUInt32LE(offset)
 
   return {
     wallet,
@@ -348,6 +353,7 @@ function parsePlayerProfile(data: Buffer, wallet: PublicKey): PlayerProfile {
     trophies,
     totalWins,
     totalLosses,
+    winStreak,
   }
 }
 

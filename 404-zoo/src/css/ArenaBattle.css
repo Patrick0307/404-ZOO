@@ -333,7 +333,7 @@
   letter-spacing: 1px;
 }
 
-/* Battlefield Grid - Three Columns Two Rows Layout (2x3) */
+/* Battlefield Grid - Two Columns Three Rows Layout (3x2) */
 .arena-battle-grid {
   display: flex;
   flex-direction: column;
@@ -347,8 +347,8 @@
 }
 
 .arena-battle-grid .grid-cell {
-  width: 120px;
-  height: 90px;
+  width: 100px;
+  height: 120px;
   background: rgba(255, 255, 255, 0.05);
   border: 2px dashed rgba(255, 255, 255, 0.2);
   border-radius: 8px;
@@ -1006,8 +1006,8 @@
 /* Responsive Adjustments */
 @media (max-width: 1200px) {
   .arena-battle-grid .grid-cell {
-    width: 100px;
-    height: 80px;
+    width: 85px;
+    height: 100px;
   }
   
   .arena-battle-grid .unit-name {
@@ -1022,8 +1022,8 @@
 
 @media (max-width: 900px) {
   .arena-battle-grid .grid-cell {
-    width: 90px;
-    height: 70px;
+    width: 75px;
+    height: 90px;
   }
   
   .arena-battle-bottom .bench-unit {

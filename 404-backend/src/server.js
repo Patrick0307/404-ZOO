@@ -212,13 +212,19 @@ function startPreparationTimer(roomId) {
   room.state.timer = 5
   room.state.phase = 'preparation'
   
-  // 重置战斗完成标记和单位状态
+  // 重置战斗完成标记，但保留场上单位（不再清空）
   for (const odId of room.players) {
     if (room.state.playerStates[odId]) {
       room.state.playerStates[odId].battleDone = false
       room.state.playerStates[odId].ready = false
-      // 清空场上单位（玩家需要重新布阵）
-      room.state.playerStates[odId].units = []
+      // 不再清空场上单位，让玩家保留上一回合的布阵
+      // 只需要恢复单位的血量
+      if (room.state.playerStates[odId].units) {
+        room.state.playerStates[odId].units = room.state.playerStates[odId].units.map(u => ({
+          ...u,
+          health: u.maxHealth || u.health
+        }))
+      }
     }
   }
 
@@ -416,12 +422,12 @@ function startBattle(roomId) {
   const p1State = room.state.playerStates[p1Id]
   const p2State = room.state.playerStates[p2Id]
 
-  const p1 = players.get(p1Id)
-  const p2 = players.get(p2Id)
+  const p1Player = players.get(p1Id)
+  const p2Player = players.get(p2Id)
 
   console.log(`⚔️ Battle started in room ${roomId.slice(0, 8)}, round ${room.state.round}`)
-  console.log(`   P1 (${p1?.name}) units: ${p1State.units.length}`)
-  console.log(`   P2 (${p2?.name}) units: ${p2State.units.length}`)
+  console.log(`   ${p1Player?.name} units: ${p1State.units.length}`)
+  console.log(`   ${p2Player?.name} units: ${p2State.units.length}`)
 
   // 发送战斗开始
   broadcastToRoom(roomId, 'battle_start', {
@@ -442,6 +448,10 @@ async function executeBattleOnServer(roomId) {
   const [p1Id, p2Id] = room.players
   const p1State = room.state.playerStates[p1Id]
   const p2State = room.state.playerStates[p2Id]
+  
+  // 获取玩家名字
+  const p1Name = players.get(p1Id)?.name || 'Player1'
+  const p2Name = players.get(p2Id)?.name || 'Player2'
 
   // 深拷贝单位用于战斗（确保 units 是数组）
   const p1Units = (p1State.units || []).filter(u => u.position !== null).map(u => ({ ...u }))
@@ -455,7 +465,7 @@ async function executeBattleOnServer(roomId) {
   })
   await sleep(500)
   broadcastToRoom(roomId, 'battle_log', {
-    log: `P1 ${p1Units.length} 单位 vs P2 ${p2Units.length} 单位`,
+    log: `${p1Name} ${p1Units.length} 单位 vs ${p2Name} ${p2Units.length} 单位`,
   })
   await sleep(1000)
 
@@ -466,13 +476,11 @@ async function executeBattleOnServer(roomId) {
     await finishBattle(roomId, p1Units, p2Units, 'draw', 'draw', currentRound)
     return
   } else if (p1Units.length === 0) {
-    // P1 没有单位，P2 获胜
-    broadcastToRoom(roomId, 'battle_log', { log: '💔 P1 没有出战单位，P2 获胜！' })
+    broadcastToRoom(roomId, 'battle_log', { log: `💔 ${p1Name} 没有出战单位，${p2Name} 获胜！` })
     await finishBattle(roomId, p1Units, p2Units, 'lose', 'win', currentRound)
     return
   } else if (p2Units.length === 0) {
-    // P2 没有单位，P1 获胜
-    broadcastToRoom(roomId, 'battle_log', { log: '🎉 P2 没有出战单位，P1 获胜！' })
+    broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${p2Name} 没有出战单位，${p1Name} 获胜！` })
     await finishBattle(roomId, p1Units, p2Units, 'win', 'lose', currentRound)
     return
   }
@@ -488,11 +496,11 @@ async function executeBattleOnServer(roomId) {
     const p2Alive = p2Units.filter(u => u.health > 0).length
 
     if (p2Alive === 0) {
-      broadcastToRoom(roomId, 'battle_log', { log: '🎉 P1 获胜！P2 全军覆没！' })
+      broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${p1Name} 获胜！${p2Name} 全军覆没！` })
       break
     }
     if (p1Alive === 0) {
-      broadcastToRoom(roomId, 'battle_log', { log: '🎉 P2 获胜！P1 全军覆没！' })
+      broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${p2Name} 获胜！${p1Name} 全军覆没！` })
       break
     }
 
@@ -517,7 +525,7 @@ async function executeBattleOnServer(roomId) {
           })
 
           if (target.health <= 0) {
-            broadcastToRoom(roomId, 'battle_log', { log: `💀 P2 ${target.name} 阵亡！` })
+            broadcastToRoom(roomId, 'battle_log', { log: `💀 [${p2Name}] ${target.name} 阵亡！` })
           }
 
           // 同步单位状态
@@ -549,7 +557,7 @@ async function executeBattleOnServer(roomId) {
           })
 
           if (target.health <= 0) {
-            broadcastToRoom(roomId, 'battle_log', { log: `💀 P1 ${target.name} 阵亡！` })
+            broadcastToRoom(roomId, 'battle_log', { log: `💀 [${p1Name}] ${target.name} 阵亡！` })
           }
 
           // 同步单位状态
