@@ -18,6 +18,7 @@ import {
   type BattleAttackPayload,
   type BattleUnitsUpdatePayload,
   type BattleResultPayload,
+  type CoinFlipPayload,
 } from '../services/battleSocket'
 
 interface ArenaBattleProps {
@@ -97,6 +98,14 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const [battleLog, setBattleLog] = useState<string[]>([])
   const [roundResult, setRoundResult] = useState<RoundResult>(null)
   
+  // Battle animation state
+  const [showCoinFlip, setShowCoinFlip] = useState(false)
+  const [coinResult, setCoinResult] = useState<'heads' | 'tails' | null>(null)
+  const [firstPlayerName, setFirstPlayerName] = useState<string>('')
+  const [attackingUnit, setAttackingUnit] = useState<{ id: string; side: 'p1' | 'p2' } | null>(null)
+  const [targetUnit, setTargetUnit] = useState<{ id: string; side: 'p1' | 'p2' } | null>(null)
+  const [currentDamage, setCurrentDamage] = useState<number>(0)
+  
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false)
   const wsConnectedRef = useRef(false)
@@ -109,6 +118,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const selectedDeckRef = useRef(selectedDeck)
   const playerProfileRef = useRef(playerProfile)
   const playerUnitsRef = useRef<BattleUnit[]>([])
+  const playerBenchRef = useRef<BattleUnit[]>([])
   const opponentUnitsRef = useRef<BattleUnit[]>([])
   const roundRef = useRef(round)
   const preBattleUnitsRef = useRef<BattleUnit[]>([])
@@ -122,6 +132,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   useEffect(() => { playerHPRef.current = playerHP }, [playerHP])
   useEffect(() => { playerProfileRef.current = playerProfile }, [playerProfile])
   useEffect(() => { playerUnitsRef.current = playerUnits }, [playerUnits])
+  useEffect(() => { playerBenchRef.current = playerBench }, [playerBench])
   useEffect(() => { opponentUnitsRef.current = opponentUnits }, [opponentUnits])
   useEffect(() => { roundRef.current = round }, [round])
 
@@ -161,12 +172,30 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         setRoundResult(null)
         setGamePhase('preparation')
         
-        // Restore unit health
-        const savedUnits = preBattleUnitsRef.current
-        if (savedUnits.length > 0) {
-          const restoredUnits = savedUnits.map(u => ({ ...u, health: u.maxHealth }))
+        // Restore unit health - use current playerUnitsRef (server now preserves units)
+        const currentUnits = playerUnitsRef.current
+        if (currentUnits.length > 0) {
+          const restoredUnits = currentUnits.map(u => ({ ...u, health: u.maxHealth }))
           setPlayerUnits(restoredUnits)
           playerUnitsRef.current = restoredUnits
+          
+          // Sync restored units to server (inline conversion to avoid closure issues)
+          if (wsConnectedRef.current) {
+            const unitToData = (u: BattleUnit): BattleUnitData => ({
+              id: u.id,
+              cardTypeId: u.cardTypeId,
+              name: u.name,
+              attack: u.attack,
+              health: u.health,
+              maxHealth: u.maxHealth,
+              star: u.star,
+              position: u.position,
+            })
+            battleSocket.placeUnit(
+              restoredUnits.map(unitToData),
+              playerBenchRef.current.map(unitToData)
+            )
+          }
         }
         break
       }
@@ -177,11 +206,42 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         break
       }
       
+      case 'coin_flip': {
+        const payload = message.payload as CoinFlipPayload
+        console.log('Coin flip:', payload)
+        setCoinResult(payload.result)
+        setFirstPlayerName(payload.firstName)
+        setShowCoinFlip(true)
+        // 硬币动画会在2秒后自动隐藏
+        setTimeout(() => setShowCoinFlip(false), 2500)
+        break
+      }
+      
       case 'battle_start': {
-        console.log('Battle starting from server')
+        const payload = message.payload as { round: number; p1Units: BattleUnitData[]; p2Units: BattleUnitData[] }
+        console.log('Battle starting from server', payload)
         
         // Save pre-battle state
         preBattleUnitsRef.current = playerUnitsRef.current.map(u => ({ ...u }))
+        
+        // Set opponent units from server data
+        ;(async () => {
+          const allTemplates = await getCachedCards()
+          const oppUnitsData = myPlayerId === 'p1' ? payload.p2Units : payload.p1Units
+          
+          const oppUnits: BattleUnit[] = (oppUnitsData || []).map(u => {
+            const template = allTemplates.find(t => t.cardTypeId === u.cardTypeId)
+            return {
+              ...u,
+              maxHealth: u.maxHealth || u.health,
+              rarity: template?.rarity ?? Rarity.Common,
+              traitType: template?.traitType ?? 0,
+              imageUri: template ? getImageUrl(template.imageUri) : '',
+            }
+          })
+          
+          setOpponentUnits(oppUnits)
+        })()
         
         setBattleLog([])
         setGamePhase('battle')
@@ -199,6 +259,21 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         // Attack event from server
         const payload = message.payload as BattleAttackPayload
         setBattleLog(prev => [...prev, payload.log])
+        
+        // 设置攻击动画状态
+        const attackerSide = payload.attacker.side as 'p1' | 'p2'
+        const targetSide = payload.target.side as 'p1' | 'p2'
+        
+        setAttackingUnit({ id: payload.attacker.id, side: attackerSide })
+        setTargetUnit({ id: payload.target.id, side: targetSide })
+        setCurrentDamage(payload.damage)
+        
+        // 1.2秒后清除动画状态
+        setTimeout(() => {
+          setAttackingUnit(null)
+          setTargetUnit(null)
+          setCurrentDamage(0)
+        }, 1200)
         break
       }
       
@@ -553,22 +628,26 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   }
 
   // 尝试合成单位
-  const tryMergeUnit = (newUnit: BattleUnit, currentGold?: number) => {
+  const tryMergeUnit = (newUnit: BattleUnit, currentGold?: number, currentFieldUnits?: BattleUnit[], currentBenchUnits?: BattleUnit[]) => {
+    // Use passed values or current state
+    const fieldUnits = currentFieldUnits ?? playerUnits
+    const benchUnits = currentBenchUnits ?? playerBench
+    
     // First check if can synthesize (no extra space needed)
-    const allUnits = [...playerUnits, ...playerBench]
+    const allUnits = [...fieldUnits, ...benchUnits]
     const sameUnits = allUnits.filter(u => u.cardTypeId === newUnit.cardTypeId && u.star === newUnit.star)
     
     // 如果能合成（已有2个相同的），则可以继续
     const canMerge = sameUnits.length >= 2 && newUnit.star < 3
     
     // If can't synthesize and bench is full, don't add
-    if (!canMerge && playerBench.length >= MAX_BENCH_SIZE) {
+    if (!canMerge && benchUnits.length >= MAX_BENCH_SIZE) {
       console.warn('Bench is full, cannot add unit')
       return
     }
     
-    const updatedBench = [...playerBench, newUnit]
-    const allUnitsWithNew = [...playerUnits, ...updatedBench]
+    const updatedBench = [...benchUnits, newUnit]
+    const allUnitsWithNew = [...fieldUnits, ...updatedBench]
     const sameUnitsWithNew = allUnitsWithNew.filter(u => u.cardTypeId === newUnit.cardTypeId && u.star === newUnit.star)
     
     if (sameUnitsWithNew.length >= 3 && newUnit.star < 3) {
@@ -589,20 +668,28 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         position: null,
       }
       
-      const newFieldUnits = playerUnits.filter(u => !toRemoveIds.has(u.id))
+      const newFieldUnits = fieldUnits.filter(u => !toRemoveIds.has(u.id))
       const newBenchUnits = updatedBench.filter(u => !toRemoveIds.has(u.id))
       
       setPlayerUnits(newFieldUnits)
+      playerUnitsRef.current = newFieldUnits
       setPlayerBench(newBenchUnits)
+      playerBenchRef.current = newBenchUnits
       
-      setTimeout(() => tryMergeUnit(upgradedUnit, currentGold), 100)
+      setTimeout(() => tryMergeUnit(upgradedUnit, currentGold, newFieldUnits, newBenchUnits), 100)
     } else {
       // Check again to ensure not exceeding limit
       if (updatedBench.length <= MAX_BENCH_SIZE) {
         setPlayerBench(updatedBench)
+        playerBenchRef.current = updatedBench
         
+        // Sync both units and bench to server after merge completes
         if (wsConnected && currentGold !== undefined) {
-          battleSocket.buyCard(currentGold, updatedBench.map(toUnitData))
+          battleSocket.sendAction('buy_card', {
+            gold: currentGold,
+            units: fieldUnits.map(toUnitData),
+            bench: updatedBench.map(toUnitData)
+          })
         }
       }
     }
@@ -704,10 +791,18 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   // 渲染单个格子
   const renderGridCell = (pos: number, units: BattleUnit[], isPlayer: boolean) => {
     const unit = units.find(u => u.position === pos)
+    const healthPercent = unit ? Math.max(0, (unit.health / unit.maxHealth) * 100) : 0
+    const isDead = unit && unit.health <= 0
+    
+    // 判断当前单位是否正在攻击或被攻击
+    const unitSide = isPlayer ? myPlayerId : (myPlayerId === 'p1' ? 'p2' : 'p1')
+    const isAttacking = unit && attackingUnit?.id === unit.id && attackingUnit?.side === unitSide
+    const isBeingAttacked = unit && targetUnit?.id === unit.id && targetUnit?.side === unitSide
+    
     return (
       <div
         key={pos}
-        className={`grid-cell ${unit ? 'occupied' : 'empty'}`}
+        className={`grid-cell ${unit ? 'occupied' : 'empty'} ${isDead ? 'dead' : ''}`}
         onClick={() => {
           if (isPlayer && selectedUnit && gamePhase === 'preparation') {
             placeUnit(selectedUnit, pos)
@@ -718,7 +813,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         <span className="grid-pos-label">{pos + 1}</span>
         {unit && (
           <div
-            className={`unit-card star-${unit.star} rarity-${unit.rarity}`}
+            className={`unit-card star-${unit.star} rarity-${unit.rarity} ${isDead ? 'dead' : ''} ${isAttacking ? 'attacking' : ''} ${isBeingAttacked ? 'being-attacked' : ''}`}
             onClick={(e) => {
               e.stopPropagation()
               if (isPlayer && gamePhase === 'preparation') {
@@ -736,19 +831,33 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                 <img src={unit.imageUri} alt={unit.name} />
               </div>
             )}
+            {/* 血条 */}
+            <div className="unit-health-bar">
+              <div 
+                className="unit-health-fill" 
+                style={{ width: `${healthPercent}%` }}
+              />
+              <span className="unit-health-text">{Math.max(0, unit.health)}/{unit.maxHealth}</span>
+            </div>
+            {/* 攻击力显示 */}
+            <div className="unit-attack">⚔{unit.attack}</div>
+            {/* 伤害数字显示 */}
+            {isBeingAttacked && currentDamage > 0 && (
+              <div className="damage-number">-{currentDamage}</div>
+            )}
           </div>
         )}
       </div>
     )
   }
 
-  // 渲染战场格子 - 三列两行布局 (2x3)
-  // 玩家: [3][4][5] / [0][1][2]
-  // 对手(镜像): [5][4][3] / [2][1][0]
+  // 渲染战场格子 - 两列三行布局 (3x2)
+  // 玩家: [4][1] / [5][2] / [6][3] (后排在左，前排在右)
+  // 对手(镜像): [1][4] / [2][5] / [3][6] (前排在左，后排在右)
   const renderBattleGrid = (units: BattleUnit[], isPlayer: boolean) => {
     const rows = isPlayer
-      ? [[3, 4, 5], [0, 1, 2]]  // 玩家: 上排345, 下排012
-      : [[5, 4, 3], [2, 1, 0]] // 对手镜像: 上排543, 下排210
+      ? [[3, 0], [4, 1], [5, 2]]  // 玩家: 后排(3,4,5)在左，前排(0,1,2)在右
+      : [[0, 3], [1, 4], [2, 5]] // 对手镜像: 前排在左，后排在右
     return (
       <div className={`arena-battle-grid ${isPlayer ? 'player' : 'opponent'}`}>
         {rows.map((row, i) => (
@@ -806,11 +915,17 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         </div>
         
         <div className="battle-center">
-          {gamePhase === 'battle' || gamePhase === 'settlement' ? (
-            <div className="battle-log">
-              {battleLog.slice(-8).map((log, i) => (
-                <div key={i} className="log-entry">{log}</div>
-              ))}
+          {showCoinFlip ? (
+            <div className="coin-flip-container">
+              <div className={`coin ${coinResult}`}>
+                <div className="coin-face heads">P1</div>
+                <div className="coin-face tails">P2</div>
+              </div>
+              <div className="coin-result-text">
+                {coinResult === 'heads' ? '正面' : '反面'}！
+                <br />
+                {firstPlayerName} 先手
+              </div>
             </div>
           ) : (
             <div className="vs-display">VS</div>
@@ -931,15 +1046,18 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   // 渲染游戏结束
   const renderGameOver = () => {
     const isWinner = playerHP > 0
-    // Trophy calculation matches contract: BASE (30) + win_streak for winner, -30 for loser
-    const trophyChange = isWinner ? 30 + maxWinStreak : -30
+    // Trophy is calculated on-chain based on player's blockchain winStreak
+    // Winner: +30 + (blockchain winStreak + 1) because contract increments first
+    // Loser: -30 (fixed)
+    const currentWinStreak = playerProfile?.winStreak ?? 0
+    const trophyChange = isWinner ? 30 + (currentWinStreak + 1) : -30
     
     return (
       <div className="arena-gameover-screen">
         <h2>{isWinner ? 'Victory！' : 'Defeat'}</h2>
         <div className="final-stats">
           <div>Lasted {round} Rounds</div>
-          <div>Highest Winning Streak: {maxWinStreak}</div>
+          <div>Win Streak: {isWinner ? currentWinStreak + 1 : 0}</div>
           <div className={`trophy-change ${isWinner ? 'win' : 'lose'}`}>
             🏆 {trophyChange > 0 ? '+' : ''}{trophyChange} Trophy
           </div>
