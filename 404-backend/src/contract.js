@@ -12,7 +12,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 // Contract Program ID
-const PROGRAM_ID = new PublicKey('Fs2LFWmDjqKt16ojH8sPuDgw2mTfqmobQbNcj5nhxVot')
+const PROGRAM_ID = new PublicKey('F27HZp9MUiCx3oXz53kA6A5VsKQTVsiRcpBtADJrgapB')
 
 // Devnet connection
 const connection = new Connection(

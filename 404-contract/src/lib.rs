@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Mint, MintTo, Transfer};
 use anchor_spl::associated_token::AssociatedToken;
 
 // change
-declare_id!("Fs2LFWmDjqKt16ojH8sPuDgw2mTfqmobQbNcj5nhxVot"); 
+declare_id!("F27HZp9MUiCx3oXz53kA6A5VsKQTVsiRcpBtADJrgapB "); 
 
 #[program]
 pub mod zoo_contract {
