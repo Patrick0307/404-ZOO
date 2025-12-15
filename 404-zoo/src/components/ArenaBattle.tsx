@@ -78,7 +78,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   const [playerHP, setPlayerHP] = useState(100)
   const [playerGold, setPlayerGold] = useState(10)
   const [playerWinStreak, setPlayerWinStreak] = useState(0)
-  const [maxWinStreak, setMaxWinStreak] = useState(0)
+  const [, setMaxWinStreak] = useState(0)
   const [playerUnits, setPlayerUnits] = useState<BattleUnit[]>([])
   const [playerBench, setPlayerBench] = useState<BattleUnit[]>([])
   
@@ -95,7 +95,7 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
   // UI state
   const [showShop, setShowShop] = useState(true)
   const [selectedUnit, setSelectedUnit] = useState<BattleUnit | null>(null)
-  const [battleLog, setBattleLog] = useState<string[]>([])
+  const [, setBattleLog] = useState<string[]>([])
   const [roundResult, setRoundResult] = useState<RoundResult>(null)
   
   // Battle animation state
