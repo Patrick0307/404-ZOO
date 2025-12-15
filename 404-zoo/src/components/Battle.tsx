@@ -67,6 +67,10 @@ function Battle({ onBack, playerProfile }: BattleProps) {
       alert('Please select a deck first!')
       return
     }
+    if (selectedDeck.cardMints.length < 10) {
+      alert(`Deck must have 10 cards! "${selectedDeck.deckName}" only has ${selectedDeck.cardMints.length} cards. Please edit it in Team Builder.`)
+      return
+    }
     setCurrentMode('arena')
   }
 
@@ -121,16 +125,21 @@ function Battle({ onBack, playerProfile }: BattleProps) {
             <div className="no-deck">Please create a deck in the Team page first</div>
           ) : (
             <div className="deck-list">
-              {savedDecks.map(deck => (
-                <div
-                  key={deck.deckIndex}
-                  className={`deck-item ${selectedDeck?.deckIndex === deck.deckIndex ? 'selected' : ''}`}
-                  onClick={() => setSelectedDeck(deck)}
-                >
-                  <span className="deck-name">{deck.deckName}</span>
-                  <span className="deck-count">{deck.cardMints.length} Cards</span>
-                </div>
-              ))}
+              {savedDecks.map(deck => {
+                const isValid = deck.cardMints.length >= 10
+                return (
+                  <div
+                    key={deck.deckIndex}
+                    className={`deck-item ${selectedDeck?.deckIndex === deck.deckIndex ? 'selected' : ''} ${!isValid ? 'invalid' : ''}`}
+                    onClick={() => setSelectedDeck(deck)}
+                  >
+                    <span className="deck-name">{deck.deckName}</span>
+                    <span className={`deck-count ${!isValid ? 'warning' : ''}`}>
+                      {deck.cardMints.length}/10 Cards {!isValid && '⚠️'}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

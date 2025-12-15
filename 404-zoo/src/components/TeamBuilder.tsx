@@ -86,8 +86,8 @@ function TeamBuilder({ playerProfile }: TeamBuilderProps) {
   const handleSaveDeck = async () => {
     if (!playerProfile) return
     const teamCards = team.filter((c): c is PlayerCard => c !== null)
-    if (teamCards.length === 0) {
-      alert('Please add cards to your team first')
+    if (teamCards.length < MAX_TEAM_SIZE) {
+      alert(`Deck must have exactly ${MAX_TEAM_SIZE} cards! Currently: ${teamCards.length}/${MAX_TEAM_SIZE}`)
       return
     }
     if (!deckName.trim()) {
@@ -237,9 +237,9 @@ function TeamBuilder({ playerProfile }: TeamBuilderProps) {
         <button 
           className="save-deck-btn-cyber"
           onClick={handleSaveDeck}
-          disabled={isSaving || team.every(slot => slot === null) || !deckName.trim()}
+          disabled={isSaving || team.filter(slot => slot !== null).length < MAX_TEAM_SIZE || !deckName.trim()}
         >
-          {isSaving ? 'SAVING...' : selectedDeckIndex !== null ? 'UPDATE_DECK' : 'SAVE_TO_CHAIN'}
+          {isSaving ? 'SAVING...' : selectedDeckIndex !== null ? 'UPDATE_DECK' : `SAVE (${team.filter(slot => slot !== null).length}/${MAX_TEAM_SIZE})`}
         </button>
         {selectedDeckIndex !== null && (
           <button 

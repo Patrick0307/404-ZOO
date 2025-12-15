@@ -50,6 +50,12 @@ export interface BattleResultPayload {
   round: number
 }
 
+export interface CoinFlipPayload {
+  result: 'heads' | 'tails'
+  firstPlayer: 'p1' | 'p2'
+  firstName: string
+}
+
 export interface BattleUnitData {
   id: string
   cardTypeId: number
