@@ -1480,3 +1480,54 @@ export async function getPlayerBugBalance(playerPubkey: PublicKey): Promise<numb
     return 0
   }
 }
+
+// ============================================================================
+// 用 BUG 购买 Gacha Tickets
+// ============================================================================
+
+// Anchor instruction discriminator for "buy_gacha_tickets"
+// sha256("global:buy_gacha_tickets")[0..8]
+function getBuyGachaTicketsDiscriminator(): Buffer {
+  return Buffer.from([12, 127, 157, 101, 178, 237, 195, 53])
+}
+
+// 用 BUG 余额购买 gacha tickets
+export async function buyGachaTickets(
+  playerPubkey: PublicKey,
+  ticketCount: number
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [gameConfigPDA] = getGameConfigPDA()
+  const [playerProfilePDA] = getPlayerProfilePDA(playerPubkey)
+
+  // 构建指令数据: discriminator + ticket_count (u64)
+  const data = Buffer.alloc(16)
+  getBuyGachaTicketsDiscriminator().copy(data, 0)
+  // 手动写入 u64 (little endian)
+  const countBuffer = Buffer.alloc(8)
+  countBuffer.writeUInt32LE(ticketCount & 0xffffffff, 0)
+  countBuffer.writeUInt32LE(Math.floor(ticketCount / 0x100000000), 4)
+  countBuffer.copy(data, 8)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: gameConfigPDA, isSigner: false, isWritable: false },
+      { pubkey: playerProfilePDA, isSigner: false, isWritable: true },
+      { pubkey: playerPubkey, isSigner: true, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = playerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Bought ${ticketCount} gacha tickets, TX:`, txId)
+
+  return txId
+}

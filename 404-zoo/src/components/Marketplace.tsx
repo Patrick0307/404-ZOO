@@ -4,7 +4,10 @@ import {
   getListingsWithCards,
   buyCard,
   buyBugTokens,
+  buyGachaTickets,
   getPlayerBugBalance,
+  getGameConfig,
+  getPlayerProfile as fetchPlayerProfile,
   type ListingWithCard,
   type PlayerProfile,
   Rarity,
@@ -14,7 +17,7 @@ interface MarketplaceProps {
   playerProfile: PlayerProfile | null
 }
 
-type TabType = 'market' | 'topup'
+type TabType = 'market' | 'topup' | 'tickets'
 
 function Marketplace({ playerProfile }: MarketplaceProps) {
   const [listings, setListings] = useState<ListingWithCard[]>([])
@@ -28,15 +31,44 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
   // Tab 和充值相关状态
   const [activeTab, setActiveTab] = useState<TabType>('market')
   const [bugBalance, setBugBalance] = useState<number>(0)
+  const [gachaTickets, setGachaTickets] = useState<number>(0)
+  const [ticketPrice, setTicketPrice] = useState<number>(100) // 默认价格
   const [isTopingUp, setIsTopingUp] = useState(false)
   const [topupStatus, setTopupStatus] = useState<string | null>(null)
+  const [isBuyingTickets, setIsBuyingTickets] = useState(false)
+  const [ticketStatus, setTicketStatus] = useState<string | null>(null)
 
   useEffect(() => {
     loadListings()
+    loadGameConfig()
     if (playerProfile) {
       loadBugBalance()
+      loadPlayerData()
     }
   }, [playerProfile])
+
+  const loadGameConfig = async () => {
+    try {
+      const config = await getGameConfig()
+      if (config) {
+        setTicketPrice(config.ticketPrice)
+      }
+    } catch (error) {
+      console.error('Failed to load game config:', error)
+    }
+  }
+
+  const loadPlayerData = async () => {
+    if (!playerProfile) return
+    try {
+      const profile = await fetchPlayerProfile(playerProfile.wallet)
+      if (profile) {
+        setGachaTickets(profile.gachaTickets)
+      }
+    } catch (error) {
+      console.error('Failed to load player data:', error)
+    }
+  }
 
   const loadListings = async () => {
     setIsLoading(true)
@@ -69,6 +101,13 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
     { sol: 2, lamports: 2_000_000_000, bugAmount: 20000 },
   ]
 
+  // Ticket 购买档位
+  const TICKET_OPTIONS = [
+    { tickets: 1, label: '1 TICKET' },
+    { tickets: 5, label: '5 TICKETS' },
+    { tickets: 10, label: '10 TICKETS' },
+  ]
+
   const handleTopup = async (lamports: number) => {
     if (!playerProfile) return
     
@@ -86,6 +125,37 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
     }
     
     setIsTopingUp(false)
+  }
+
+  const handleBuyTickets = async (ticketCount: number) => {
+    if (!playerProfile) return
+    
+    const totalCost = ticketPrice * ticketCount
+    if (bugBalance < totalCost) {
+      setTicketStatus(`Insufficient BUG! Need ${totalCost}, have ${bugBalance}`)
+      return
+    }
+    
+    setIsBuyingTickets(true)
+    setTicketStatus('Processing...')
+    
+    try {
+      await buyGachaTickets(playerProfile.wallet, ticketCount)
+      setTicketStatus(`Successfully bought ${ticketCount} ticket(s)!`)
+      await loadBugBalance()
+      await loadPlayerData()
+      setTimeout(() => setTicketStatus(null), 2000)
+    } catch (error) {
+      console.error('Failed to buy tickets:', error)
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      if (errorMsg.includes('InsufficientBalance')) {
+        setTicketStatus('Insufficient BUG balance!')
+      } else {
+        setTicketStatus('Purchase failed. Please try again.')
+      }
+    }
+    
+    setIsBuyingTickets(false)
   }
 
   const filteredListings = listings.filter(item => {
@@ -189,8 +259,13 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
         >
           BUG_TOPUP
         </button>
+        <button 
+          className={`market-tab ${activeTab === 'tickets' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tickets')}
+        >
+          BUY_TICKETS
+        </button>
         <button className="market-tab">MONSTER_CARDS</button>
-        <button className="market-tab">EVOLUTION_CORE</button>
         <button className="market-tab">PACKS</button>
       </div>
 
@@ -240,6 +315,68 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
               • Rate: 1 SOL = 10,000 BUG<br/>
               • BUG tokens are used to purchase cards<br/>
               • Transactions are processed on Solana Devnet
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tickets Tab Content */}
+      {activeTab === 'tickets' && (
+        <div className="topup-content">
+          <div className="topup-header">
+            <div className="topup-title">GACHA_TICKET_SHOP</div>
+            <div className="topup-subtitle">// BUY TICKETS WITH BUG TOKENS</div>
+          </div>
+
+          <div className="ticket-balance-row">
+            <div className="topup-balance">
+              <span className="balance-label">BUG_BALANCE:</span>
+              <span className="balance-value">{bugBalance.toLocaleString()} BUG</span>
+            </div>
+            <div className="topup-balance ticket-balance">
+              <span className="balance-label">TICKETS:</span>
+              <span className="balance-value ticket-value">{gachaTickets}</span>
+            </div>
+          </div>
+
+          <div className="ticket-price-info">
+            <span className="price-label">PRICE_PER_TICKET:</span>
+            <span className="price-value">{ticketPrice} BUG</span>
+          </div>
+
+          <div className="topup-options">
+            {TICKET_OPTIONS.map((option) => (
+              <div key={option.tickets} className="topup-card ticket-card">
+                <div className="topup-card-header">
+                  <span className="sol-amount ticket-amount">{option.label}</span>
+                </div>
+                <div className="topup-card-body">
+                  <div className="bug-amount ticket-cost">{(ticketPrice * option.tickets).toLocaleString()}</div>
+                  <div className="bug-label">BUG COST</div>
+                </div>
+                <button
+                  className="topup-btn ticket-btn"
+                  onClick={() => handleBuyTickets(option.tickets)}
+                  disabled={isBuyingTickets || !playerProfile || bugBalance < ticketPrice * option.tickets}
+                >
+                  {isBuyingTickets ? 'PROCESSING...' : 'BUY'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {ticketStatus && (
+            <div className={`topup-status ${ticketStatus.includes('Successfully') ? 'success' : ticketStatus.includes('Insufficient') || ticketStatus.includes('failed') ? 'error' : ''}`}>
+              {ticketStatus}
+            </div>
+          )}
+
+          <div className="topup-info">
+            <div className="info-title">TICKET_INFO:</div>
+            <div className="info-text">
+              • Use tickets to draw cards in Gacha<br/>
+              • 1 ticket = 1 card draw<br/>
+              • New players get 10 free tickets!
             </div>
           </div>
         </div>

@@ -596,3 +596,73 @@
   font-size: 16px;
   text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
 }
+
+
+/* ============================================
+   Gacha Ticket Shop Styles
+   ============================================ */
+
+.ticket-balance-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.ticket-balance {
+  border-color: #ff3366;
+}
+
+.ticket-value {
+  color: #ff3366 !important;
+  text-shadow: 0 0 10px rgba(255, 51, 102, 0.5) !important;
+}
+
+.ticket-price-info {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 51, 102, 0.5);
+  padding: 12px 24px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.price-label {
+  color: rgba(0, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.price-value {
+  color: #ff3366;
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(255, 51, 102, 0.5);
+}
+
+.ticket-card {
+  border-color: #ff3366;
+}
+
+.ticket-card:hover {
+  border-color: #ff6699;
+  box-shadow: 0 0 30px rgba(255, 51, 102, 0.3);
+}
+
+.ticket-amount {
+  color: #ff3366 !important;
+  text-shadow: 0 0 10px rgba(255, 51, 102, 0.5) !important;
+}
+
+.ticket-cost {
+  color: #ff3366 !important;
+  text-shadow: 0 0 15px rgba(255, 51, 102, 0.5) !important;
+}
+
+.ticket-btn {
+  color: #ff3366 !important;
+  border-color: #ff3366 !important;
+  background: rgba(255, 51, 102, 0.1) !important;
+}
+
+.ticket-btn:hover:not(:disabled) {
+  background: rgba(255, 51, 102, 0.3) !important;
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.5) !important;
+}
