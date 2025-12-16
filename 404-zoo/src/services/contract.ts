@@ -17,7 +17,7 @@ interface PhantomWallet {
 }
 
 // Contract Program ID (新合约，无 SPL Token)
-export const PROGRAM_ID = new PublicKey('Fs2LFWmDjqKt16ojH8sPuDgw2mTfqmobQbNcj5nhxVot')
+export const PROGRAM_ID = new PublicKey('F27HZp9MUiCx3oXz53kA6A5VsKQTVsiRcpBtADJrgapB')
 
 // Devnet connection
 export const connection = new Connection(clusterApiUrl('devnet'), 'confirmed')
