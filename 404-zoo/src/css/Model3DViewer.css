@@ -1,0 +1,234 @@
+/* 3D Model Viewer */
+.model-3d-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
+    url('/registerbackground.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  z-index: 1001;
+  animation: hologramActivate 1s ease-out;
+  overflow: hidden;
+}
+
+@keyframes hologramActivate {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.model-3d-scene {
+  width: 800px;
+  height: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.model-3d-scene canvas {
+  border-radius: 10px;
+  box-shadow: 
+    0 0 50px rgba(0, 255, 255, 0.2),
+    0 0 100px rgba(100, 200, 255, 0.1);
+}
+
+/* 浮动动画已移除 */
+
+
+
+.model-3d-text {
+  text-align: center;
+  animation: textGlow 2s ease-in-out infinite;
+}
+
+.model-title {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 32px;
+  color: #00ffff;
+  text-shadow: 
+    0 0 20px rgba(0, 255, 255, 1),
+    0 0 40px rgba(0, 255, 255, 0.8);
+  margin-bottom: 10px;
+  letter-spacing: 3px;
+}
+
+.model-subtitle {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 16px;
+  color: rgba(0, 255, 255, 0.8);
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+  letter-spacing: 2px;
+}
+
+@keyframes textGlow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* 动态背景效果 - 与注册背景融合 */
+.model-3d-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 98px,
+      rgba(0, 255, 255, 0.02) 100px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 98px,
+      rgba(0, 255, 255, 0.02) 100px
+    );
+  animation: gridMove 20s linear infinite;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+@keyframes gridMove {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(100px, 100px);
+  }
+}
+
+/* 浮动光点效果 - 与注册背景融合 */
+.model-3d-container::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(2px 2px at 100px 150px, rgba(0, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 200px 300px, rgba(100, 200, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 300px 100px, rgba(200, 100, 255, 0.15), transparent),
+    radial-gradient(2px 2px at 400px 250px, rgba(0, 255, 200, 0.2), transparent),
+    radial-gradient(1px 1px at 500px 50px, rgba(255, 100, 200, 0.15), transparent),
+    radial-gradient(1px 1px at 150px 400px, rgba(100, 255, 100, 0.15), transparent);
+  background-repeat: repeat;
+  background-size: 600px 500px;
+  animation: floatingLights 25s linear infinite;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+@keyframes floatingLights {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate(-600px, -500px) rotate(360deg);
+  }
+}
+/* 3D交互控
+制样式 */
+.model-3d-scene {
+  pointer-events: auto;
+}
+
+.model-3d-scene canvas {
+  cursor: grab;
+  transition: box-shadow 0.3s ease;
+}
+
+.model-3d-scene canvas:active {
+  cursor: grabbing;
+}
+
+/* 交互提示 */
+.model-3d-container .interaction-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 12px;
+  color: rgba(0, 255, 255, 0.7);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  letter-spacing: 1px;
+  animation: hintFade 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes hintFade {
+  0%, 70% { opacity: 0.7; }
+  85% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
+/* 关闭按钮 - 现代科幻风格 */
+.close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(20, 20, 40, 0.9));
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  border-radius: 8px;
+  color: #00ffff;
+  font-size: 36px;
+  font-weight: 300;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 1002;
+  font-family: 'Arial', sans-serif;
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.close-button:hover {
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(100, 200, 255, 0.1));
+  border-color: rgba(0, 255, 255, 0.8);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 20px rgba(0, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.close-button:active {
+  transform: translateY(0px);
+  box-shadow: 
+    0 2px 10px rgba(0, 255, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}

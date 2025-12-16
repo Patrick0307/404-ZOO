@@ -9,6 +9,7 @@ import {
   Rarity,
 } from '../services/contract'
 import { getCachedCards, getImageUrl } from '../services/cardCache'
+import Model3DViewer from './Model3DViewer'
 
 function Pokedex() {
   const [cards, setCards] = useState<CardTemplate[]>([])
@@ -16,6 +17,8 @@ function Pokedex() {
   const [selectedCard, setSelectedCard] = useState<CardTemplate | null>(null)
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
   const [isClosing, setIsClosing] = useState(false)
+  const [show3D, setShow3D] = useState(false)
+  const [cardFlipping, setCardFlipping] = useState(false)
 
   useEffect(() => {
     loadCards()
@@ -62,11 +65,43 @@ function Pokedex() {
   }
 
   const handleCloseModal = () => {
-    setIsClosing(true)
-    setTimeout(() => {
-      setSelectedCard(null)
-      setIsClosing(false)
-    }, 500) // 500ms close animation
+    if (show3D) {
+      // 如果在3D视图，先关闭3D视图
+      setShow3D(false)
+      setCardFlipping(true)
+      setTimeout(() => {
+        setCardFlipping(false)
+        setSelectedCard(null)
+      }, 800)
+    } else {
+      // 正常关闭模态框
+      setIsClosing(true)
+      setTimeout(() => {
+        setSelectedCard(null)
+        setIsClosing(false)
+      }, 500)
+    }
+  }
+
+  const handleCardClick = (card: CardTemplate) => {
+    // 只负责选择卡片，显示模态框
+    setSelectedCard(card)
+    setShow3D(false)
+    setCardFlipping(false)
+  }
+
+  const handleModalCardClick = () => {
+    // 在模态框中点击卡片图片触发3D效果
+    console.log('Modal card clicked, show3D:', show3D)
+    if (!show3D) {
+      console.log('Starting card flip animation')
+      setCardFlipping(true)
+      setTimeout(() => {
+        console.log('Activating 3D view')
+        setShow3D(true)
+        setCardFlipping(false)
+      }, 800) // 卡片倒下动画时间
+    }
   }
 
   return (
@@ -101,7 +136,7 @@ function Pokedex() {
             <div
               key={card.cardTypeId}
               className={`pokedex-card-cyber rarity-${RarityToName[card.rarity]}`}
-              onClick={() => setSelectedCard(card)}
+              onClick={() => handleCardClick(card)}
             >
               <div className="card-stars" style={{ color: RarityColors[card.rarity] }}>
                 {getRarityStars(card.rarity)}
@@ -126,8 +161,8 @@ function Pokedex() {
 
       {/* MTG-Style Card Detail Modal */}
       {selectedCard && (
-        <div className={`card-modal-overlay-mtg ${isClosing ? 'closing' : ''}`} onClick={handleCloseModal}>
-          <div className={`mtg-card ${isClosing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
+        <div className={`card-modal-overlay-mtg ${isClosing ? 'closing' : ''}`} onClick={show3D ? undefined : handleCloseModal}>
+          <div className={`mtg-card ${isClosing ? 'closing' : ''} ${cardFlipping ? 'flipping' : ''} ${show3D ? 'show-3d' : ''}`} onClick={e => e.stopPropagation()}>
             <div className="mtg-card-inner">
               {/* Card Border with Glow */}
               <div className={`mtg-border rarity-${RarityToName[selectedCard.rarity]}`}>
@@ -140,7 +175,7 @@ function Pokedex() {
 
                 {/* Image Section */}
                 <div className="mtg-image-frame">
-                  <div className="mtg-image-container">
+                  <div className={`mtg-image-container ${!show3D ? 'clickable-for-3d' : ''}`} onClick={handleModalCardClick}>
                     {shouldShowImage(selectedCard) ? (
                       <img
                         src={getImageUrl(selectedCard.imageUri)}
@@ -151,6 +186,11 @@ function Pokedex() {
                     ) : (
                       <div className="mtg-fallback-image">
                         <span className="fallback-icon-large">{getTraitIcon(selectedCard.traitType)}</span>
+                      </div>
+                    )}
+                    {!show3D && (
+                      <div className="click-for-3d-hint">
+                        <span>CLICK FOR 3D VIEW</span>
                       </div>
                     )}
                   </div>
@@ -193,6 +233,13 @@ function Pokedex() {
             
             <button className="mtg-close-btn" onClick={handleCloseModal}>✕</button>
           </div>
+          
+          {/* 3D Model Viewer */}
+          <Model3DViewer 
+            modelPath="/overflow_seraph figure 3d model.glb"
+            isVisible={show3D}
+            onClose={() => setShow3D(false)}
+          />
         </div>
       )}
     </div>
