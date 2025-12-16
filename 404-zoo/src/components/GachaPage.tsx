@@ -3,6 +3,7 @@ import '../css/GachaPage.css'
 import {
   claimStarterTickets,
   gachaDraw,
+  gachaDrawMultiple,
   getPlayerProfile,
   getCardTemplate,
   type PlayerProfile,
@@ -22,6 +23,7 @@ interface DrawnCard {
 }
 
 type AnimationState = 'idle' | 'charging' | 'overload' | 'revealing' | 'flipping' | 'complete' | 'fading'
+type TenDrawState = 'idle' | 'loading' | 'revealing' | 'flipping' | 'complete'
 
 function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
   const [isLoading, setIsLoading] = useState(false)
@@ -29,6 +31,10 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
   const [animationState, setAnimationState] = useState<AnimationState>('idle')
   const [currentCard, setCurrentCard] = useState<DrawnCard | null>(null)
   const [showFlash, setShowFlash] = useState(false)
+  
+  // 10 抽状态
+  const [tenDrawState, setTenDrawState] = useState<TenDrawState>('idle')
+  const [tenDrawCards, setTenDrawCards] = useState<DrawnCard[]>([])
 
   const tickets = playerProfile?.gachaTickets ?? 0
   const hasClaimedFree = playerProfile?.hasClaimedStarterPack ?? false
@@ -132,23 +138,72 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
     }
   }
 
-  const handleTenDraw = async () => {
-    if (!playerProfile || tickets < 10) return
+  const handleFiveDraw = async () => {
+    if (!playerProfile || tickets < 5 || tenDrawState !== 'idle') return
     
     setIsLoading(true)
+    setTenDrawState('loading')
+    
     try {
+      // 使用 gachaDrawMultiple，一次签名 5 个交易
+      const results = await gachaDrawMultiple(playerProfile.wallet, 5)
+      
+      // 获取所有卡片模板（串行获取，避免 rate limit）
       const draws: DrawnCard[] = []
-      for (let i = 0; i < 10; i++) {
-        const result = await gachaDraw(playerProfile.wallet)
+      for (const result of results) {
         const template = await getCardTemplate(result.cardTypeId)
         draws.push({ result, template })
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
-      setRecentDraws(prev => [...draws, ...prev].slice(0, 6))
+      
+      // 设置卡片数据
+      setTenDrawCards(draws)
+      
+      // Phase 1: Flash + 显示卡背
+      setShowFlash(true)
+      setTimeout(() => setShowFlash(false), 300)
+      setTenDrawState('revealing')
+      
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Phase 2: 翻转所有卡片
+      setTenDrawState('flipping')
+      
+      // 检查是否有传说卡
+      const hasLegendary = draws.some(d => d.template?.rarity === 2)
+      if (hasLegendary) {
+        setTimeout(() => {
+          setShowFlash(true)
+          setTimeout(() => setShowFlash(false), 200)
+        }, 750)
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2500))
+      
+      // Phase 3: 完成
+      setTenDrawState('complete')
+      setRecentDraws(prev => [...draws, ...prev].slice(0, 10))
+      
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      // 重置
+      setTenDrawState('idle')
+      setTenDrawCards([])
+      
       await refreshProfile()
     } catch (error) {
       console.error('Draw failed:', error)
+      setTenDrawState('idle')
+      setTenDrawCards([])
     }
     setIsLoading(false)
+  }
+  
+  const handleTenDrawClose = () => {
+    if (tenDrawState === 'complete') {
+      setTenDrawState('idle')
+      setTenDrawCards([])
+    }
   }
 
   const getStars = (rarity: number) => {
@@ -168,6 +223,51 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
       
       {/* Flash effect */}
       {showFlash && <div className="screen-flash" />}
+      
+      {/* 10 抽卡片展示 (5x2 网格) */}
+      {tenDrawState !== 'idle' && tenDrawState !== 'loading' && (
+        <div className="ten-draw-overlay" onClick={handleTenDrawClose}>
+          <div className="ten-draw-container">
+            <div className="ten-draw-grid">
+              {tenDrawCards.map((card, index) => (
+                <div 
+                  key={index}
+                  className={`ten-draw-card ${tenDrawState === 'flipping' || tenDrawState === 'complete' ? 'flipped' : ''} rarity-${card.template?.rarity ?? 0}`}
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {/* Card back */}
+                  <div className="card-back">
+                    <div className="card-back-content">
+                      <div className="card-back-logo">⚠</div>
+                      <div className="card-back-text">ERROR</div>
+                    </div>
+                  </div>
+                  
+                  {/* Card front */}
+                  <div className="card-front">
+                    <div className="card-front-stars">
+                      {'★'.repeat(getStars(card.template?.rarity ?? 0))}
+                    </div>
+                    <div className="card-front-image">
+                      {card.template?.imageUri ? (
+                        <img src={card.template.imageUri} alt={card.template.name} />
+                      ) : (
+                        <span className="card-fallback">🃏</span>
+                      )}
+                    </div>
+                    <div className="card-front-name">
+                      {card.template?.name ?? `ERR.${card.result.cardTypeId}`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {tenDrawState === 'complete' && (
+              <div className="ten-draw-hint">CLICK_TO_CLOSE</div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Card reveal */}
       {currentCard && animationState !== 'idle' && (
@@ -226,10 +326,10 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
 
           <button 
             className="extract-btn"
-            onClick={handleTenDraw}
-            disabled={isLoading || tickets < 10}
+            onClick={handleFiveDraw}
+            disabled={isLoading || tickets < 5}
           >
-            {isLoading ? 'EXTRACTING...' : 'EXTRACT_TEN'}
+            {isLoading ? 'EXTRACTING...' : 'EXTRACT_FIVE'}
           </button>
 
           {!hasClaimedFree && (

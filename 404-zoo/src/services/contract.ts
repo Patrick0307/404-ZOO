@@ -812,6 +812,147 @@ export async function gachaDraw(
   }
 }
 
+// 多抽 (一次签名，多次发送)
+export async function gachaDrawMultiple(
+  playerPubkey: PublicKey,
+  count: number
+): Promise<GachaDrawResult[]> {
+  const phantom = getPhantomProvider()
+  const [playerProfilePDA] = getPlayerProfilePDA(playerPubkey)
+  const [gameConfigPDA] = getGameConfigPDA()
+  const { Keypair } = await import('@solana/web3.js')
+
+  // 1. 加载卡片模板
+  const cardsByRarity = await loadCardsByRarity()
+  
+  // 2. 获取 mint rent
+  const mintRent = await connection.getMinimumBalanceForRentExemption(82)
+  const { blockhash } = await connection.getLatestBlockhash()
+
+  // 3. 为每次抽卡构建交易
+  const transactionsData: Array<{
+    transaction: Transaction
+    mintKeypair: InstanceType<typeof Keypair>
+    cardTypeId: number
+    selectedCard: CardTemplate
+  }> = []
+
+  for (let i = 0; i < count; i++) {
+    // Roll rarity 并选择卡片
+    let rarity = rollRarityClient()
+    let cards = cardsByRarity.get(rarity)
+
+    if (!cards || cards.length === 0) {
+      for (const r of [Rarity.Common, Rarity.Rare, Rarity.Legendary]) {
+        cards = cardsByRarity.get(r)
+        if (cards && cards.length > 0) {
+          rarity = r
+          break
+        }
+      }
+    }
+
+    if (!cards || cards.length === 0) {
+      throw new Error('No card templates found!')
+    }
+
+    const selectedCard = cards[Math.floor(Math.random() * cards.length)]
+    const cardTypeId = selectedCard.cardTypeId
+    const [cardTemplatePDA] = getCardTemplatePDA(cardTypeId)
+
+    // 创建 mint keypair
+    const mintKeypair = Keypair.generate()
+    const mintPubkey = mintKeypair.publicKey
+    const playerTokenAccount = getAssociatedTokenAddress(mintPubkey, playerPubkey)
+    const [cardInstancePDA] = getCardInstancePDA(mintPubkey)
+
+    // 创建 mint account 指令
+    const createMintAccountIx = SystemProgram.createAccount({
+      fromPubkey: playerPubkey,
+      newAccountPubkey: mintPubkey,
+      space: 82,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID,
+    })
+
+    // 初始化 mint 指令
+    const initMintData = Buffer.alloc(35)
+    initMintData.writeUInt8(20, 0)
+    initMintData.writeUInt8(0, 1)
+    gameConfigPDA.toBuffer().copy(initMintData, 2)
+    initMintData.writeUInt8(0, 34)
+
+    const initMintIx = new TransactionInstruction({
+      keys: [{ pubkey: mintPubkey, isSigner: false, isWritable: true }],
+      programId: TOKEN_PROGRAM_ID,
+      data: initMintData,
+    })
+
+    // gacha_draw 指令
+    const gachaDrawIx = new TransactionInstruction({
+      keys: [
+        { pubkey: playerProfilePDA, isSigner: false, isWritable: true },
+        { pubkey: gameConfigPDA, isSigner: false, isWritable: false },
+        { pubkey: cardTemplatePDA, isSigner: false, isWritable: false },
+        { pubkey: mintPubkey, isSigner: false, isWritable: true },
+        { pubkey: playerTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: cardInstancePDA, isSigner: false, isWritable: true },
+        { pubkey: playerPubkey, isSigner: true, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: RENT_SYSVAR_ID, isSigner: false, isWritable: false },
+      ],
+      programId: PROGRAM_ID,
+      data: getGachaDrawDiscriminator(),
+    })
+
+    const transaction = new Transaction()
+      .add(createMintAccountIx)
+      .add(initMintIx)
+      .add(gachaDrawIx)
+
+    transaction.feePayer = playerPubkey
+    transaction.recentBlockhash = blockhash
+    transaction.partialSign(mintKeypair)
+
+    transactionsData.push({ transaction, mintKeypair, cardTypeId, selectedCard })
+  }
+
+  // 4. 一次签名所有交易
+  console.log(`Signing ${count} transactions...`)
+  const transactions = transactionsData.map(d => d.transaction)
+  const signedTransactions = await phantom.signAllTransactions(transactions)
+
+  // 5. 串行发送交易（避免 rate limit）
+  console.log(`Sending ${count} transactions...`)
+  const results: GachaDrawResult[] = []
+
+  for (let index = 0; index < signedTransactions.length; index++) {
+    const signedTx = signedTransactions[index]
+    try {
+      const txId = await connection.sendRawTransaction(signedTx.serialize())
+      await connection.confirmTransaction(txId, 'confirmed')
+      const { cardTypeId, mintKeypair } = transactionsData[index]
+      console.log(`Draw ${index + 1}: Card ${cardTypeId}, TX: ${txId}`)
+      results.push({
+        txId,
+        cardTypeId,
+        mintAddress: mintKeypair.publicKey.toBase58(),
+      })
+    } catch (error) {
+      console.error(`Draw ${index + 1} failed:`, error)
+    }
+    // 每次发送间隔 200ms，避免 429
+    if (index < signedTransactions.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+  }
+
+  console.log(`Multi-draw complete! ${results.length}/${count} successful`)
+  return results
+}
+
 // ============================================================================
 // 卡组 (Deck) 相关功能
 // ============================================================================
