@@ -670,8 +670,8 @@
 
 /* Unit Images */
 .unit-image {
-  width: 40px;
-  height: 40px;
+  width: 60px;
+  height: 60px;
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 2px;
@@ -684,25 +684,25 @@
 }
 
 .unit-stars {
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1;
 }
 
 .unit-name {
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 80px;
+  max-width: 90px;
 }
 
 .unit-stats {
   display: flex;
   gap: 6px;
-  font-size: 9px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -1185,8 +1185,8 @@
   }
   
   .unit-name {
-    font-size: 9px;
-    max-width: 65px;
+    font-size: 12px;
+    max-width: 90px;
   }
   
   .battle-center {

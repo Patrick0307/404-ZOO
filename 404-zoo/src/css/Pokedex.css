@@ -51,6 +51,7 @@
   overflow-y: auto;
   flex: 1;
   padding-right: 10px;
+  padding-bottom: 50px;
   justify-content: start;
 }
 
@@ -829,4 +830,211 @@
     transform: rotate(360deg) scale(0.8);
     opacity: 0;
   }
+}
+/* Card Flipping Animation */
+.mtg-card.flipping {
+  animation: cardFlipDown 0.8s ease-in-out forwards;
+}
+
+@keyframes cardFlipDown {
+  0% {
+    transform: rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: rotateX(-90deg) scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: rotateX(-180deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.mtg-card.show-3d {
+  transform: rotateX(-180deg) scale(0.6);
+  opacity: 0;
+}
+
+/* 3D View State */
+.mtg-card.show-3d .mtg-card-inner {
+  display: none;
+}
+
+/* Enhanced card interaction */
+.pokedex-card-cyber {
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.pokedex-card-cyber:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 
+    0 10px 30px rgba(0, 200, 255, 0.4),
+    0 0 20px rgba(0, 200, 255, 0.6);
+}
+
+.pokedex-card-cyber.selected {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 
+    0 8px 25px rgba(255, 51, 102, 0.5),
+    0 0 25px rgba(255, 51, 102, 0.8);
+  border-color: #ff3366 !important;
+  background: rgba(255, 51, 102, 0.1) !important;
+}
+
+/* Click hint for selected card */
+.pokedex-card-cyber.selected::after {
+  content: 'CLICK FOR 3D VIEW';
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 12px;
+  color: #ff3366;
+  text-shadow: 
+    0 0 8px rgba(255, 51, 102, 1),
+    0 0 15px rgba(255, 51, 102, 0.8);
+  animation: clickHint 1.5s ease-in-out infinite;
+  white-space: nowrap;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #ff3366;
+}
+
+@keyframes clickHint {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}/* M
+odal Card Image Click for 3D */
+.mtg-image-container.clickable-for-3d {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.mtg-image-container.clickable-for-3d:hover {
+  transform: scale(1.02);
+  box-shadow: 
+    inset 0 0 40px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(0, 200, 255, 0.6);
+}
+
+.click-for-3d-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid #ff3366;
+  border-radius: 6px;
+  padding: 6px 12px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.click-for-3d-hint span {
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 12px;
+  color: #ff3366;
+  text-shadow: 0 0 8px rgba(255, 51, 102, 0.8);
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+.mtg-image-container.clickable-for-3d:hover .click-for-3d-hint {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-5px);
+  animation: hintPulse 1s ease-in-out infinite;
+}
+
+@keyframes hintPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 51, 102, 0.8);
+  }
+}
+
+/* Remove old card grid selected styles since we don't need them anymore */
+.pokedex-card-cyber.selected {
+  display: none;
+}
+
+.pokedex-card-cyber.selected::after {
+  display: none;
+}/* 
+3D View Hint Styles */
+.mtg-3d-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'ArcadeClassic', 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+}
+
+.mtg-3d-hint.legendary {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 152, 0, 0.1));
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  color: #ffd700;
+  animation: legendaryHintGlow 2s ease-in-out infinite;
+}
+
+.mtg-3d-hint.legendary:hover {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 152, 0, 0.2));
+  border-color: rgba(255, 215, 0, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.mtg-3d-hint.disabled {
+  background: rgba(100, 100, 100, 0.1);
+  border: 1px solid rgba(100, 100, 100, 0.3);
+  color: rgba(150, 150, 150, 0.7);
+}
+
+.mtg-3d-hint .hint-icon {
+  font-size: 14px;
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.mtg-3d-hint .hint-text {
+  text-shadow: 0 0 5px currentColor;
+}
+
+@keyframes legendaryHintGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+}
+
+/* Clickable 3D Effect - Simplified */
+.mtg-image-container.clickable-for-3d {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.mtg-image-container.clickable-for-3d:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
 }

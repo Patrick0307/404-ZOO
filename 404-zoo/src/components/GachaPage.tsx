@@ -364,19 +364,10 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
             )}
           </div>
 
-          <div className="gacha-log-header" style={{ marginTop: '40px' }}>GACHA_LOG:</div>
-          <div className="gacha-log-list">
-            <div className="gacha-log-item">
-              <div className="log-stars">★★★★ ★★★★</div>
-            </div>
-            <div className="gacha-log-item">
-              <div className="log-stars">★★★</div>
-              <div className="log-name">ERR.404_WOLF</div>
-            </div>
-          </div>
+
 
           <div className="gacha-coins-display">
-            ERR_COINS: {tickets}
+            BUG_TICKET: {tickets}
           </div>
         </div>
       </div>

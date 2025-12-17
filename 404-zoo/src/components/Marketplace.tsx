@@ -25,7 +25,7 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isBuying, setIsBuying] = useState(false)
   const [buyStatus, setBuyStatus] = useState<string | null>(null)
-  const [rarityFilter, setRarityFilter] = useState<number | null>(null)
+  const [rarityFilter, setRarityFilter] = useState<Set<number>>(new Set([0, 1, 2]))
   const [typeFilter, setTypeFilter] = useState<number | null>(null)
   
   // Tab 和充值相关状态
@@ -37,6 +37,10 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
   const [topupStatus, setTopupStatus] = useState<string | null>(null)
   const [isBuyingTickets, setIsBuyingTickets] = useState(false)
   const [ticketStatus, setTicketStatus] = useState<string | null>(null)
+  
+  // 模态框相关状态
+  const [showModal, setShowModal] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
 
   useEffect(() => {
     loadListings()
@@ -159,9 +163,19 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
   }
 
   const filteredListings = listings.filter(item => {
-    if (rarityFilter !== null && item.cardTemplate?.rarity !== rarityFilter) return false
-    if (typeFilter !== null && item.cardTemplate?.traitType !== typeFilter) return false
-    return true
+    const cardRarity = item.cardTemplate?.rarity ?? 0
+    const passesRarityFilter = rarityFilter.has(cardRarity)
+    const passesTypeFilter = typeFilter === null || item.cardTemplate?.traitType === typeFilter
+    
+    // Debug logging
+    console.log('Filtering card:', {
+      cardRarity,
+      rarityFilter: Array.from(rarityFilter),
+      passesRarityFilter,
+      passesTypeFilter
+    })
+    
+    return passesRarityFilter && passesTypeFilter
   })
 
   const getRarityName = (rarity: number) => {
@@ -187,6 +201,42 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
       case 2: return 'assassin'
       default: return 'unknown'
     }
+  }
+
+  const getTraitEmoji = (traitType: number): string => {
+    switch (traitType) {
+      case 0: return '⚔️'
+      case 1: return '🏹'
+      case 2: return '🗡️'
+      default: return '❓'
+    }
+  }
+
+  const handleInspect = () => {
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsClosing(true)
+    setTimeout(() => {
+      setShowModal(false)
+      setIsClosing(false)
+    }, 500)
+  }
+
+  const toggleRarityFilter = (rarity: number) => {
+    const newFilter = new Set(rarityFilter)
+    if (newFilter.has(rarity)) {
+      newFilter.delete(rarity)
+    } else {
+      newFilter.add(rarity)
+    }
+    console.log('Toggling rarity filter:', {
+      rarity,
+      oldFilter: Array.from(rarityFilter),
+      newFilter: Array.from(newFilter)
+    })
+    setRarityFilter(newFilter)
   }
 
   const handleBuy = async () => {
@@ -394,33 +444,33 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
 
             <div className="filter-section">
               <div className="filter-title">RARITY</div>
-              <label className="filter-checkbox">
-                <input 
-                  type="checkbox" 
-                  checked={rarityFilter === null || rarityFilter === Rarity.Common}
-                  onChange={() => setRarityFilter(rarityFilter === Rarity.Common ? null : Rarity.Common)}
-                />
-                <span className="checkbox-icon">☑</span>
-                <span>COMMON</span>
-              </label>
-              <label className="filter-checkbox">
-                <input 
-                  type="checkbox" 
-                  checked={rarityFilter === null || rarityFilter === Rarity.Rare}
-                  onChange={() => setRarityFilter(rarityFilter === Rarity.Rare ? null : Rarity.Rare)}
-                />
-                <span className="checkbox-icon">☑</span>
-                <span>RARE</span>
-              </label>
-              <label className="filter-checkbox">
-                <input 
-                  type="checkbox" 
-                  checked={rarityFilter === null || rarityFilter === Rarity.Legendary}
-                  onChange={() => setRarityFilter(rarityFilter === Rarity.Legendary ? null : Rarity.Legendary)}
-                />
-                <span className="checkbox-icon">☑</span>
-                <span>LEGENDARY</span>
-              </label>
+              <div 
+                className={`filter-option ${rarityFilter.has(Rarity.Common) ? 'selected' : ''}`}
+                onClick={() => toggleRarityFilter(Rarity.Common)}
+              >
+                <div className="filter-checkbox-box">
+                  {rarityFilter.has(Rarity.Common) && <span className="checkmark">✓</span>}
+                </div>
+                <span className="filter-label">COMMON</span>
+              </div>
+              <div 
+                className={`filter-option ${rarityFilter.has(Rarity.Rare) ? 'selected' : ''}`}
+                onClick={() => toggleRarityFilter(Rarity.Rare)}
+              >
+                <div className="filter-checkbox-box">
+                  {rarityFilter.has(Rarity.Rare) && <span className="checkmark">✓</span>}
+                </div>
+                <span className="filter-label">RARE</span>
+              </div>
+              <div 
+                className={`filter-option ${rarityFilter.has(Rarity.Legendary) ? 'selected' : ''}`}
+                onClick={() => toggleRarityFilter(Rarity.Legendary)}
+              >
+                <div className="filter-checkbox-box">
+                  {rarityFilter.has(Rarity.Legendary) && <span className="checkmark">✓</span>}
+                </div>
+                <span className="filter-label">LEGENDARY</span>
+              </div>
             </div>
 
             <div className="filter-section">
@@ -533,7 +583,7 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
               >
                 {isBuying ? 'PROCESSING...' : 'ACQUIRE'}
               </button>
-              <button className="inspect-btn">INSPECT</button>
+              <button className="inspect-btn" onClick={handleInspect}>INSPECT</button>
             </div>
           )}
         </div>
@@ -546,6 +596,82 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
           <span className="balance-text">BUG: {bugBalance.toLocaleString()}</span>
         </div>
       </div>
+
+      {/* Card Detail Modal */}
+      {showModal && selectedListing && (
+        <div className={`card-modal-overlay-mtg ${isClosing ? 'closing' : ''}`} onClick={handleCloseModal}>
+          <div className={`mtg-card ${isClosing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
+            <div className="mtg-card-inner">
+              {/* Card Border with Glow */}
+              <div className={`mtg-border rarity-${selectedListing.cardTemplate?.rarity ?? 0}`}>
+                {/* Top Section - Name Only */}
+                <div className="mtg-header">
+                  <div className="mtg-name-box">
+                    <h2 className="mtg-card-name">{selectedListing.cardTemplate?.name ?? `MK-${selectedListing.cardInstance?.cardTypeId ?? '???'}_UNKNOWN`}</h2>
+                  </div>
+                </div>
+
+                {/* Image Section */}
+                <div className="mtg-image-frame">
+                  <div className="mtg-image-container">
+                    {selectedListing.cardTemplate?.imageUri ? (
+                      <img
+                        src={selectedListing.cardTemplate.imageUri}
+                        alt={selectedListing.cardTemplate.name}
+                        className="mtg-card-image"
+                      />
+                    ) : (
+                      <div className="mtg-fallback-image">
+                        <span className="fallback-icon-large">{getTraitEmoji(selectedListing.cardTemplate?.traitType ?? 0)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Type Line with Stats */}
+                <div className="mtg-type-section">
+                  <div className="mtg-type-line">
+                    <div className="mtg-type-text">
+                      {getRarityName(selectedListing.cardTemplate?.rarity ?? 0)} Creature — {getTraitName(selectedListing.cardTemplate?.traitType ?? 0)}
+                    </div>
+                  </div>
+                  <div className="mtg-stats-box">
+                    <div className="stat-label">Attack:</div>
+                    <div className="stat-value">{selectedListing.cardInstance?.attack ?? '???'}</div>
+                    <div className="stat-separator">/</div>
+                    <div className="stat-label">Health:</div>
+                    <div className="stat-value">{selectedListing.cardInstance?.health ?? '???'}</div>
+                  </div>
+                </div>
+
+                {/* Text Box */}
+                <div className="mtg-text-box">
+                  <p className="mtg-description">{selectedListing.cardTemplate?.description ?? 'A mysterious creature from the 404 Zoo.'}</p>
+                  <div className="mtg-flavor-text">
+                    <em>"In the depths of the 404 Zoo, legends are born from chaos."</em>
+                  </div>
+                  <div className="mtg-instance-info">
+                    <strong>Price:</strong> {selectedListing.listing.price} BUG<br/>
+                    <strong>Seller:</strong> {selectedListing.listing.seller.toBase58().slice(0, 8)}...<br/>
+                    <strong>Listed:</strong> {new Date(selectedListing.listing.createdAt * 1000).toLocaleDateString()}
+                  </div>
+                </div>
+
+                {/* Bottom Info */}
+                <div className="mtg-bottom-info">
+                  <span className="mtg-set-info">404 ZOO</span>
+                  <span className="mtg-rarity-symbol">
+                    {'★'.repeat(getStars(selectedListing.cardTemplate?.rarity ?? 0))}
+                  </span>
+                  <span className="mtg-card-number">#{selectedListing.cardInstance?.cardTypeId ?? '???'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <button className="mtg-close-btn" onClick={handleCloseModal}>✕</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -411,6 +411,25 @@
   border-color: rgba(255, 215, 0, 0.3);
 }
 
+.your-card-cyber.selected {
+  border-color: #00ffff;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+}
+
+.your-card-cyber.rarity-2.selected {
+  border-color: #ffd700;
+  box-shadow: 
+    0 0 30px rgba(255, 215, 0, 1),
+    0 0 50px rgba(0, 255, 255, 0.5);
+}
+
+.your-card-cyber.rarity-1.selected {
+  border-color: #2196f3;
+  box-shadow: 
+    0 0 25px rgba(33, 150, 243, 0.8),
+    0 0 40px rgba(0, 255, 255, 0.4);
+}
+
 .your-card-cyber:hover:not(.in-team) {
   transform: translateY(-4px);
   box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);

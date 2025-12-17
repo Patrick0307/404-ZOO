@@ -104,6 +104,7 @@
   flex-direction: column;
   align-items: center;
   gap: 20px;
+  margin-top: -60px;
 }
 
 .gacha-warning-icon {
@@ -647,6 +648,7 @@
   display: flex;
   flex-direction: column;
   width: 400px;
+  margin-top: -250px;
 }
 
 .gacha-log-header {
