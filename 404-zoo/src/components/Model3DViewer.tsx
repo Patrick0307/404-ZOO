@@ -4,18 +4,99 @@ import { GLTFLoader, OrbitControls } from 'three-stdlib'
 import '../css/Model3DViewer.css'
 
 interface Model3DViewerProps {
-  modelPath: string
+  cardName?: string
+  modelPath?: string
   isVisible: boolean
   onClose: () => void
 }
 
-function Model3DViewer({ modelPath, isVisible, onClose }: Model3DViewerProps) {
+// 模型路径映射
+const modelMap: Record<string, string> = {
+  // 根据控制台显示的实际卡片名称映射（全大写，带下划线）
+  'NULL_DRAGON': '/Null_Dragon 3d model.glb',
+  'OVERFLOW_SERAPH': '/overflow_seraph figure 3d model.glb',
+  'QUANTUM_BUG': '/Quantum_Bug 3d model.glb',
+  'GHOST_PACKET': '/Ghost_Packet 3d model.glb',
+  'ESRCH_LION': '/ESRCH_Lion_3d_model.glb',
+  'SIGKILL_ZOMBIE': '/EPERM_Zombie 3d model (1).glb',
+  'ENOENT_Ghoul': '/EPERM_Zombie 3d model (1).glb',
+  '409_CONFLICT_TREX': '/409_conflict_Trex_3d model.glb',
+  '401_UNAUTHORIZED': '/401_Unauthorized_Mushroom 3d model.glb',
+  '400_BAD_REQUEST': '/400_Bad_Request_Beetle 3d model.glb',
+  
+  // 添加一些变体（小写和混合格式）
+  'Overflow Seraph': '/overflow_seraph figure 3d model.glb',
+  'Null Dragon': '/Null_Dragon 3d model.glb',
+  'Quantum Bug': '/Ghost_Packet 3d model.glb',
+  'Ghost Packet': '/Ghost_Packet 3d model.glb',
+  'ESRCH Lion': '/ESRCH_Lion_3d_model.glb',
+  'SIGKILL Zombie': '/EPERM_Zombie 3d model (1).glb',
+  'SIGKILL Ghoul': '/EPERM_Zombie 3d model (1).glb',
+  '409 Conflict Trex': '/409_conflict_Trex_3d model.glb',
+  '401 Unauthorized': '/401_Unauthorized_Mushroom 3d model.glb',
+  '400 Bad Request': '/400_Bad_Request_Beetle 3d model.glb',
+}
+
+// 根据模型路径获取显示名称
+function getDisplayNameByPath(modelPath: string): string {
+  const pathToNameMap: Record<string, string> = {
+    '/Null_Dragon 3d model.glb': 'NULL DRAGON',
+    '/overflow_seraph figure 3d model.glb': 'OVERFLOW SERAPH',
+    '/Quantum_Bug 3d model.glb': 'QUANTUM BUG',
+    '/Ghost_Packet 3d model.glb': 'GHOST PACKET',
+    '/ESRCH_Lion_3d_model.glb': 'ESRCH LION',
+    '/EPERM_Zombie 3d model (1).glb': 'EPERM ZOMBIE',
+    '/409_conflict_Trex_3d model.glb': '409 CONFLICT TREX',
+    '/401_Unauthorized_Mushroom 3d model.glb': '401 UNAUTHORIZED',
+    '/400_Bad_Request_Beetle 3d model.glb': '400 BAD REQUEST',
+  }
+  
+  return pathToNameMap[modelPath] || 'UNKNOWN ENTITY'
+}
+
+// 根据卡片名称获取对应的3D模型路径
+function getModelPathByCardName(cardName: string): string {
+  console.log('🔍 Looking for model for card:', cardName)
+  
+  console.log('📋 Available models:', Object.keys(modelMap))
+  
+  // 尝试精确匹配
+  if (modelMap[cardName]) {
+    console.log('✅ Exact match found:', modelMap[cardName])
+    return modelMap[cardName]
+  }
+  
+  // 尝试模糊匹配（包含关键词）
+  const lowerCardName = cardName.toLowerCase()
+  console.log('🔍 Trying fuzzy match for:', lowerCardName)
+  
+  for (const [key, path] of Object.entries(modelMap)) {
+    const lowerKey = key.toLowerCase()
+    if (lowerCardName.includes(lowerKey) || lowerKey.includes(lowerCardName)) {
+      console.log('✅ Fuzzy match found:', key, '->', path)
+      return path
+    }
+  }
+  
+  console.log('❌ No match found, using default model')
+  // 默认模型
+  return '/overflow_seraph figure 3d model.glb'
+}
+
+function Model3DViewer({ cardName, modelPath, isVisible, onClose }: Model3DViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // 确定要使用的模型路径
+  const actualModelPath = modelPath || (cardName ? getModelPathByCardName(cardName) : '/overflow_seraph figure 3d model.glb')
+  
+  // 获取显示名称 - 优先使用cardName，否则根据模型路径获取
+  const displayName = cardName ? cardName.toUpperCase() : getDisplayNameByPath(actualModelPath)
 
   useEffect(() => {
     if (!isVisible || !containerRef.current) return
 
-    console.log('3D Model Viewer activated:', modelPath)
+    console.log('3D Model Viewer activated:', actualModelPath)
+    console.log('Card name:', cardName)
     
     // 创建Three.js场景
     const scene = new THREE.Scene()
@@ -76,7 +157,7 @@ function Model3DViewer({ modelPath, isVisible, onClose }: Model3DViewerProps) {
     // 加载GLB模型
     const loader = new GLTFLoader()
     loader.load(
-      modelPath,
+      actualModelPath,
       (gltf) => {
         console.log('GLB model loaded successfully')
         model = gltf.scene
@@ -164,7 +245,7 @@ function Model3DViewer({ modelPath, isVisible, onClose }: Model3DViewerProps) {
       controls.dispose() // 清理控制器
       renderer.dispose()
     }
-  }, [isVisible, modelPath])
+  }, [isVisible, actualModelPath, cardName])
 
   if (!isVisible) {
     console.log('3D Model Viewer not visible')
@@ -182,7 +263,7 @@ function Model3DViewer({ modelPath, isVisible, onClose }: Model3DViewerProps) {
         {/* Three.js canvas will be inserted here */}
       </div>
       <div className="model-3d-text">
-        <div className="model-title">OVERFLOW SERAPH</div>
+        <div className="model-title">{displayName}</div>
         <div className="model-subtitle">3D HOLOGRAM ACTIVATED</div>
       </div>
     </div>

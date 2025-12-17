@@ -84,35 +84,37 @@ function Battle({ onBack, playerProfile }: BattleProps) {
   const renderLobby = () => (
     <div className="battle-lobby">
       {/* Left side - Mode Selection */}
-      <div className="battle-mode-selection">
-        <h3>Please Choose Your Mode</h3>
-        
-        {/* Arena 模式 */}
-        <div className="mode-card arena-mode" onClick={startArenaBattle}>
-          {/* <div className="mode-icon">🏟️</div> */}
-          <div className="mode-info">
-            <h4>Arena Rank Mode</h4>
-            <p>Auto Chess gameplay, drawing cards from the deck to build your lineup.</p>
+      <div className="battle-left-section">
+        <div className="battle-mode-selection">
+          <h3>Please Choose Your Mode</h3>
+          
+          {/* Arena 模式 */}
+          <div className="mode-card arena-mode" onClick={startArenaBattle}>
+            {/* <div className="mode-icon">🏟️</div> */}
+            <div className="mode-info">
+              <h4>Arena Rank Mode</h4>
+              <p>Auto Chess gameplay, drawing cards from the deck to build your lineup.</p>
+            </div>
           </div>
-        </div>
 
-        {/* Other mode placeholders - can be extended later */}
-        <div className="mode-card other-mode disabled">
-          {/* <div className="mode-icon">🎯</div> */}
-          <div className="mode-info">
-            <h4>Fast Mode</h4>
-            <p>Coming Soon...</p>
+          {/* Other mode placeholders - can be extended later */}
+          <div className="mode-card other-mode disabled">
+            {/* <div className="mode-icon">🎯</div> */}
+            <div className="mode-info">
+              <h4>Fast Mode</h4>
+              <p>Coming Soon...</p>
+            </div>
+            <div className="coming-soon">Stay tuned</div>
           </div>
-          <div className="coming-soon">Stay tuned</div>
-        </div>
 
-        <div className="mode-card other-mode disabled">
-          {/* <div className="mode-icon">🏆</div> */}
-          <div className="mode-info">
-            <h4>Championship</h4>
-            <p>Coming Soon...</p>
+          <div className="mode-card other-mode disabled">
+            {/* <div className="mode-icon">🏆</div> */}
+            <div className="mode-info">
+              <h4>Championship</h4>
+              <p>Coming Soon...</p>
+            </div>
+            <div className="coming-soon">Stay tuned</div>
           </div>
-          <div className="coming-soon">Stay tuned</div>
         </div>
       </div>
 

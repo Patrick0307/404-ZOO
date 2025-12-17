@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Backpack from './Backpack'
 import GachaPage from './GachaPage'
@@ -26,8 +26,29 @@ type PageType = 'home' | 'backpack' | 'gacha' | 'marketplace' | 'pokedex' | 'bat
 function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRegister, playerProfile, onProfileUpdate, currentRoute }: MainLayoutProps) {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
+  const [isPlaying, setIsPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   const currentPage = currentRoute as PageType
+
+  // BGM控制
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = 0.5
+      audioRef.current.loop = true
+    }
+  }, [])
+
+  const toggleBGM = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+      } else {
+        audioRef.current.play().catch(console.error)
+      }
+      setIsPlaying(!isPlaying)
+    }
+  }
 
   const handleNavigate = (page: PageType) => {
     navigate(`/${page === 'home' ? 'home' : page}`)
@@ -126,6 +147,12 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
 
   return (
     <div className="main-layout">
+      {/* BGM Audio Element */}
+      <audio ref={audioRef} preload="auto">
+        <source src="/bgm.mp3" type="audio/mpeg" />
+        Your browser does not support the audio element.
+      </audio>
+
       <div className="main-layout-bg">
         <img src={getBackgroundImage()} alt="" className="background-image" />
       </div>
@@ -182,6 +209,11 @@ function MainLayout({ walletAddress, onDisconnect, isRegistered, isLoading, onRe
         </nav>
 
         <div className="user-info-section">
+          <div className="audio-controls">
+            <button className="bgm-toggle-btn" onClick={toggleBGM}>
+              {isPlaying ? '🔊' : '🔇'}
+            </button>
+          </div>
           <div className="user-details">
             <div className="user-name">{playerProfile?.username || 'Player'}</div>
             <div className="user-wallet">{walletAddress}</div>

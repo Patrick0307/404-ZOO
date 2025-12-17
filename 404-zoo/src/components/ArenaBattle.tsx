@@ -851,20 +851,11 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
     )
   }
 
-  // 渲染战场格子 - 两列三行布局 (3x2)
-  // 玩家: [4][1] / [5][2] / [6][3] (后排在左，前排在右)
-  // 对手(镜像): [1][4] / [2][5] / [3][6] (前排在左，后排在右)
+  // 渲染战场格子 - 四列两行布局 (4x2)
   const renderBattleGrid = (units: BattleUnit[], isPlayer: boolean) => {
-    const rows = isPlayer
-      ? [[3, 0], [4, 1], [5, 2]]  // 玩家: 后排(3,4,5)在左，前排(0,1,2)在右
-      : [[0, 3], [1, 4], [2, 5]] // 对手镜像: 前排在左，后排在右
     return (
       <div className={`arena-battle-grid ${isPlayer ? 'player' : 'opponent'}`}>
-        {rows.map((row, i) => (
-          <div key={i} className="grid-row">
-            {row.map(pos => renderGridCell(pos, units, isPlayer))}
-          </div>
-        ))}
+        {Array.from({ length: 8 }, (_, i) => renderGridCell(i, units, isPlayer))}
       </div>
     )
   }
@@ -883,20 +874,22 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
         </div>
         
         <div className="round-info">
-          <div className="round-number">Round {round}</div>
           <div className="phase-indicator">
-            {gamePhase === 'preparation' && `Preparation ${timer}s`}
-            {gamePhase === 'battle' && 'Battle in progress...'}
+            {gamePhase === 'preparation' && 'PREPARATION PHASE'}
+            {gamePhase === 'battle' && 'COMBAT STARTS'}
             {gamePhase === 'settlement' && (
               <span className={`result ${roundResult}`}>
-                {roundResult === 'win' && 'Victory! Waiting for opponent...'}
-                {roundResult === 'lose' && 'Defeat Waiting for opponent...'}
-                {roundResult === 'draw' && 'Draw Waiting for opponent...'}
-                {!roundResult && 'Waiting for opponent...'}
+                {roundResult === 'win' && 'VICTORY'}
+                {roundResult === 'lose' && 'DEFEAT'}
+                {roundResult === 'draw' && 'DRAW'}
+                {!roundResult && 'PREPARATION PHASE'}
               </span>
             )}
           </div>
+          <div className="round-number">{timer}s</div>
         </div>
+        
+        <button className="exit-btn-header" onClick={returnToLobby}>EXIT</button>
         
         <div className="player-info right">
           <span className="player-name">{opponentName}</span>
@@ -927,6 +920,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                 {firstPlayerName} 先手
               </div>
             </div>
+          ) : gamePhase === 'battle' ? (
+            <div className="vs-display">VS</div>
           ) : (
             <div className="vs-display">VS</div>
           )}
@@ -942,43 +937,53 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
       <div className="arena-battle-bottom">
         <div className={`bench-area ${showShop ? 'expanded' : 'collapsed'}`}>
           <div className="bench-header" onClick={() => setShowShop(!showShop)}>
-            <span>Bench ({playerBench.length}/9)</span>
-            <span className="toggle-icon">{showShop ? '▼' : '▲'}</span>
+            <span>BENCH ({playerBench.length}/9)</span>
+            <div className="bench-controls">
+              <span>⚠️</span>
+              <span className="toggle-icon">{showShop ? '▼' : '▲'}</span>
+            </div>
           </div>
           
           {showShop && (
             <>
               <div className="bench-units">
-                {playerBench.map(unit => (
-                  <div
-                    key={unit.id}
-                    className={`bench-unit star-${unit.star} rarity-${unit.rarity} ${selectedUnit?.id === unit.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedUnit(selectedUnit?.id === unit.id ? null : unit)}
-                  >
-                    {unit.imageUri && (
-                      <div className="unit-image">
-                        <img src={unit.imageUri} alt={unit.name} />
-                      </div>
-                    )}
-                    <div className="unit-stars">{'★'.repeat(unit.star)}</div>
-                    <div className="unit-name">{unit.name}</div>
-                    <div className="unit-stats">
-                      <span>ATK:{unit.attack}</span>
-                      <span>HP:{unit.health}</span>
+                {Array.from({ length: 9 }, (_, i) => {
+                  const unit = playerBench[i]
+                  return (
+                    <div
+                      key={i}
+                      className={`bench-slot ${unit ? 'occupied' : 'empty'} ${selectedUnit?.id === unit?.id ? 'selected' : ''}`}
+                      onClick={() => unit && setSelectedUnit(selectedUnit?.id === unit.id ? null : unit)}
+                    >
+                      {unit ? (
+                        <>
+                          {unit.imageUri && (
+                            <div className="unit-image">
+                              <img src={unit.imageUri} alt={unit.name} />
+                            </div>
+                          )}
+                          <div className="unit-stars">{'★'.repeat(unit.star)}</div>
+                          <div className="unit-name">{unit.name}</div>
+                          <div className="unit-stats">
+                            <span className="attack-stat">⚔{unit.attack}</span>
+                            <span className="health-stat">❤{unit.health}</span>
+                          </div>
+                          {gamePhase === 'preparation' && (
+                            <button
+                              className="sell-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                sellUnit(unit)
+                              }}
+                            >
+                              Sell ${CARD_SELL_PRICES[unit.rarity as Rarity] * unit.star}
+                            </button>
+                          )}
+                        </>
+                      ) : null}
                     </div>
-                    {gamePhase === 'preparation' && (
-                      <button
-                        className="sell-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          sellUnit(unit)
-                        }}
-                      >
-                        Sell ${CARD_SELL_PRICES[unit.rarity as Rarity] * unit.star}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               
               {/* Shop */}
@@ -986,13 +991,19 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                 <div className="shop-area">
                   <div className="shop-header">
                     <span>SHOP</span>
-                    <button
-                      className="refresh-btn"
-                      onClick={handleRefreshShop}
-                      disabled={!freeRefresh && playerGold < 2}
-                    >
-                      REFRESH {freeRefresh ? 'Free' : '2 Gold'}
-                    </button>
+                    <div className="shop-controls">
+                      <button
+                        className="refresh-btn"
+                        onClick={handleRefreshShop}
+                        disabled={!freeRefresh && playerGold < 2}
+                      >
+                        REFRESH SHOP 🪙 {freeRefresh ? '0' : '2'}
+                      </button>
+                      <div className="gold-display">
+                        <span className="gold-icon">🪙</span>
+                        <span className="gold-amount">{playerGold}</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="shop-cards">
                     {shopCards.map((cardData, i) => {
@@ -1010,13 +1021,12 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
                               <img src={template.imageUri} alt={template.name} />
                             </div>
                           )}
-                          <div className="card-rarity">{RarityNames[template.rarity as Rarity]}</div>
                           <div className="card-name">{template.name}</div>
                           <div className="card-stats">
-                            <span>ATK:{instance.attack}</span>
-                            <span>HP:{instance.health}</span>
+                            <span className="attack-stat">⚔{instance.attack}</span>
+                            <span className="health-stat">❤{instance.health}</span>
                           </div>
-                          <div className="card-price">${CARD_PRICES[template.rarity as Rarity]}</div>
+                          <div className="card-cost">COST {CARD_PRICES[template.rarity as Rarity]}</div>
                           {!canBuy && playerBench.length >= MAX_BENCH_SIZE && (
                             <div className="card-disabled-reason">Bench Full</div>
                           )}
@@ -1029,17 +1039,8 @@ function ArenaBattle({ onBack, playerProfile, selectedDeck }: ArenaBattleProps) 
             </>
           )}
         </div>
-        
-        <div className="gold-display">
-          <span className="gold-icon">$</span>
-          <span className="gold-amount">{playerGold}</span>
-          {playerWinStreak > 0 && (
-            <span className="streak">{playerWinStreak} Win Streak</span>
-          )}
-        </div>
       </div>
-      
-      <button className="exit-btn" onClick={returnToLobby}>Exit</button>
+
     </div>
   )
 

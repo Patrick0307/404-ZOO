@@ -66,15 +66,21 @@ function TeamBuilder({ playerProfile }: TeamBuilderProps) {
     return team.some(t => t && t.instance.mint.toBase58() === card.instance.mint.toBase58())
   }
 
-  const addToTeam = () => {
-    if (!selectedCard) return
+  const addToTeam = (card?: PlayerCard) => {
+    const cardToAdd = card || selectedCard
+    if (!cardToAdd) return
     const emptyIndex = team.findIndex(slot => slot === null)
     if (emptyIndex === -1) return
-    if (isCardInTeam(selectedCard)) return
+    if (isCardInTeam(cardToAdd)) return
     
     const newTeam = [...team]
-    newTeam[emptyIndex] = selectedCard
+    newTeam[emptyIndex] = cardToAdd
     setTeam(newTeam)
+  }
+
+  const handleCardDoubleClick = (card: PlayerCard) => {
+    if (isCardInTeam(card)) return
+    addToTeam(card)
   }
 
   const removeFromTeam = (index: number) => {
@@ -337,8 +343,9 @@ function TeamBuilder({ playerProfile }: TeamBuilderProps) {
                   return (
                     <div 
                       key={card.instance.mint.toBase58()} 
-                      className={`your-card-cyber ${inTeam ? 'in-team' : ''} rarity-${card.template?.rarity ?? 0}`}
+                      className={`your-card-cyber ${inTeam ? 'in-team' : ''} ${selectedCard?.instance.mint.toBase58() === card.instance.mint.toBase58() ? 'selected' : ''} rarity-${card.template?.rarity ?? 0}`}
                       onClick={() => !inTeam && setSelectedCard(card)}
+                      onDoubleClick={() => handleCardDoubleClick(card)}
                     >
                       <div className="card-stars-cyber">
                         {'★'.repeat(getStars(card.template?.rarity ?? 0))}
@@ -397,7 +404,7 @@ function TeamBuilder({ playerProfile }: TeamBuilderProps) {
 
             <button 
               className="add-to-team-btn"
-              onClick={addToTeam}
+              onClick={() => addToTeam()}
               disabled={isCardInTeam(selectedCard) || team.every(slot => slot !== null)}
             >
               ADD TO TEAM

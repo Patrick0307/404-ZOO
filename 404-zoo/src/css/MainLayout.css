@@ -82,9 +82,36 @@
   align-items: center;
   gap: 15px;
   flex-shrink: 0;
-  width: 350px;
-  margin-left: 40px;
+  width: 380px;
+  margin-left: 0px;
   margin-right: 40px;
+}
+
+/* Audio Controls */
+.audio-controls {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+}
+
+.bgm-toggle-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.5));
+}
+
+.bgm-toggle-btn:hover {
+  background: rgba(0, 255, 255, 0.2);
+  transform: scale(1.1);
 }
 
 .user-details {

@@ -93,8 +93,15 @@ function Pokedex() {
   const handleModalCardClick = () => {
     // 在模态框中点击卡片图片触发3D效果
     console.log('Modal card clicked, show3D:', show3D)
+    
+    // 检查是否为legendary卡片 (rarity = 2)
+    if (!selectedCard || selectedCard.rarity !== 2) {
+      console.log('Only legendary cards can view 3D models. Current rarity:', selectedCard?.rarity)
+      return
+    }
+    
     if (!show3D) {
-      console.log('Starting card flip animation')
+      console.log('Starting card flip animation for legendary card')
       setCardFlipping(true)
       setTimeout(() => {
         console.log('Activating 3D view')
@@ -175,7 +182,7 @@ function Pokedex() {
 
                 {/* Image Section */}
                 <div className="mtg-image-frame">
-                  <div className={`mtg-image-container ${!show3D ? 'clickable-for-3d' : ''}`} onClick={handleModalCardClick}>
+                  <div className={`mtg-image-container ${!show3D && selectedCard.rarity === 2 ? 'clickable-for-3d' : ''}`} onClick={handleModalCardClick}>
                     {shouldShowImage(selectedCard) ? (
                       <img
                         src={getImageUrl(selectedCard.imageUri)}
@@ -236,7 +243,7 @@ function Pokedex() {
           
           {/* 3D Model Viewer */}
           <Model3DViewer 
-            modelPath="/overflow_seraph figure 3d model.glb"
+            cardName={selectedCard?.name}
             isVisible={show3D}
             onClose={() => setShow3D(false)}
           />
