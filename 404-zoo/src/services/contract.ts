@@ -16,8 +16,8 @@ interface PhantomWallet {
   signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>
 }
 
-// Contract Program ID
-export const PROGRAM_ID = new PublicKey('6yDrfZC6YeWTMrNCPirexQoGHXT5a9gcR7qy5XNLe3Wx')
+// Contract Program ID (新合约，无 SPL Token)
+export const PROGRAM_ID = new PublicKey('F27HZp9MUiCx3oXz53kA6A5VsKQTVsiRcpBtADJrgapB')
 
 // Devnet connection
 export const connection = new Connection(clusterApiUrl('devnet'), 'confirmed')
@@ -284,9 +284,11 @@ export interface PlayerProfile {
   username: string
   hasClaimedStarterPack: boolean
   gachaTickets: number
+  bugBalance: number  // BUG 代币余额（游戏内货币）
   trophies: number
   totalWins: number
   totalLosses: number
+  winStreak: number   // 当前连胜数（用于计算奖杯奖励）
 }
 
 // 解析 PlayerProfile 账户数据
@@ -297,9 +299,11 @@ function parsePlayerProfile(data: Buffer, wallet: PublicKey): PlayerProfile {
   // 4 bytes: username length + username bytes
   // 1 byte: has_claimed_starter_pack
   // 8 bytes: gacha_tickets (u64)
+  // 8 bytes: bug_balance (u64)
   // 4 bytes: trophies (u32)
   // 4 bytes: total_wins (u32)
   // 4 bytes: total_losses (u32)
+  // 4 bytes: win_streak (u32)
   // 1 byte: bump
 
   let offset = 8 // skip discriminator
@@ -321,6 +325,10 @@ function parsePlayerProfile(data: Buffer, wallet: PublicKey): PlayerProfile {
   const gachaTickets = Number(data.readBigUInt64LE(offset))
   offset += 8
 
+  // Read bug_balance (8 bytes, u64)
+  const bugBalance = Number(data.readBigUInt64LE(offset))
+  offset += 8
+
   // Read trophies (4 bytes)
   const trophies = data.readUInt32LE(offset)
   offset += 4
@@ -331,15 +339,21 @@ function parsePlayerProfile(data: Buffer, wallet: PublicKey): PlayerProfile {
 
   // Read total_losses (4 bytes)
   const totalLosses = data.readUInt32LE(offset)
+  offset += 4
+
+  // Read win_streak (4 bytes)
+  const winStreak = data.readUInt32LE(offset)
 
   return {
     wallet,
     username,
     hasClaimedStarterPack,
     gachaTickets,
+    bugBalance,
     trophies,
     totalWins,
     totalLosses,
+    winStreak,
   }
 }
 
@@ -371,6 +385,40 @@ export async function checkPlayerRegistered(
 ): Promise<boolean> {
   const profile = await getPlayerProfile(playerPubkey)
   return profile !== null
+}
+
+// 获取所有玩家的 Profile（用于排行榜）
+export async function getAllPlayerProfiles(): Promise<PlayerProfile[]> {
+  try {
+    // PlayerProfile::LEN = 8 + 32 + 4 + 32 + 1 + 8 + 8 + 4 + 4 + 4 + 4 + 1 = 110
+    const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+      filters: [
+        { dataSize: 110 }, // PlayerProfile account size
+      ],
+    })
+
+    const profiles: PlayerProfile[] = []
+    for (const { account, pubkey } of accounts) {
+      try {
+        // 从账户数据中读取 wallet
+        const walletBytes = account.data.slice(8, 40)
+        const wallet = new PublicKey(walletBytes)
+        const profile = parsePlayerProfile(Buffer.from(account.data), wallet)
+        profiles.push(profile)
+      } catch (e) {
+        console.error('Error parsing player profile:', pubkey.toBase58(), e)
+      }
+    }
+
+    // 按 trophies 降序排序
+    profiles.sort((a, b) => b.trophies - a.trophies)
+    
+    console.log(`Loaded ${profiles.length} player profiles for leaderboard`)
+    return profiles
+  } catch (error) {
+    console.error('Error getting all player profiles:', error)
+    return []
+  }
 }
 
 // 获取 Phantom provider
@@ -764,6 +812,147 @@ export async function gachaDraw(
   }
 }
 
+// 多抽 (一次签名，多次发送)
+export async function gachaDrawMultiple(
+  playerPubkey: PublicKey,
+  count: number
+): Promise<GachaDrawResult[]> {
+  const phantom = getPhantomProvider()
+  const [playerProfilePDA] = getPlayerProfilePDA(playerPubkey)
+  const [gameConfigPDA] = getGameConfigPDA()
+  const { Keypair } = await import('@solana/web3.js')
+
+  // 1. 加载卡片模板
+  const cardsByRarity = await loadCardsByRarity()
+  
+  // 2. 获取 mint rent
+  const mintRent = await connection.getMinimumBalanceForRentExemption(82)
+  const { blockhash } = await connection.getLatestBlockhash()
+
+  // 3. 为每次抽卡构建交易
+  const transactionsData: Array<{
+    transaction: Transaction
+    mintKeypair: InstanceType<typeof Keypair>
+    cardTypeId: number
+    selectedCard: CardTemplate
+  }> = []
+
+  for (let i = 0; i < count; i++) {
+    // Roll rarity 并选择卡片
+    let rarity = rollRarityClient()
+    let cards = cardsByRarity.get(rarity)
+
+    if (!cards || cards.length === 0) {
+      for (const r of [Rarity.Common, Rarity.Rare, Rarity.Legendary]) {
+        cards = cardsByRarity.get(r)
+        if (cards && cards.length > 0) {
+          rarity = r
+          break
+        }
+      }
+    }
+
+    if (!cards || cards.length === 0) {
+      throw new Error('No card templates found!')
+    }
+
+    const selectedCard = cards[Math.floor(Math.random() * cards.length)]
+    const cardTypeId = selectedCard.cardTypeId
+    const [cardTemplatePDA] = getCardTemplatePDA(cardTypeId)
+
+    // 创建 mint keypair
+    const mintKeypair = Keypair.generate()
+    const mintPubkey = mintKeypair.publicKey
+    const playerTokenAccount = getAssociatedTokenAddress(mintPubkey, playerPubkey)
+    const [cardInstancePDA] = getCardInstancePDA(mintPubkey)
+
+    // 创建 mint account 指令
+    const createMintAccountIx = SystemProgram.createAccount({
+      fromPubkey: playerPubkey,
+      newAccountPubkey: mintPubkey,
+      space: 82,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID,
+    })
+
+    // 初始化 mint 指令
+    const initMintData = Buffer.alloc(35)
+    initMintData.writeUInt8(20, 0)
+    initMintData.writeUInt8(0, 1)
+    gameConfigPDA.toBuffer().copy(initMintData, 2)
+    initMintData.writeUInt8(0, 34)
+
+    const initMintIx = new TransactionInstruction({
+      keys: [{ pubkey: mintPubkey, isSigner: false, isWritable: true }],
+      programId: TOKEN_PROGRAM_ID,
+      data: initMintData,
+    })
+
+    // gacha_draw 指令
+    const gachaDrawIx = new TransactionInstruction({
+      keys: [
+        { pubkey: playerProfilePDA, isSigner: false, isWritable: true },
+        { pubkey: gameConfigPDA, isSigner: false, isWritable: false },
+        { pubkey: cardTemplatePDA, isSigner: false, isWritable: false },
+        { pubkey: mintPubkey, isSigner: false, isWritable: true },
+        { pubkey: playerTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: cardInstancePDA, isSigner: false, isWritable: true },
+        { pubkey: playerPubkey, isSigner: true, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: RENT_SYSVAR_ID, isSigner: false, isWritable: false },
+      ],
+      programId: PROGRAM_ID,
+      data: getGachaDrawDiscriminator(),
+    })
+
+    const transaction = new Transaction()
+      .add(createMintAccountIx)
+      .add(initMintIx)
+      .add(gachaDrawIx)
+
+    transaction.feePayer = playerPubkey
+    transaction.recentBlockhash = blockhash
+    transaction.partialSign(mintKeypair)
+
+    transactionsData.push({ transaction, mintKeypair, cardTypeId, selectedCard })
+  }
+
+  // 4. 一次签名所有交易
+  console.log(`Signing ${count} transactions...`)
+  const transactions = transactionsData.map(d => d.transaction)
+  const signedTransactions = await phantom.signAllTransactions(transactions)
+
+  // 5. 串行发送交易（避免 rate limit）
+  console.log(`Sending ${count} transactions...`)
+  const results: GachaDrawResult[] = []
+
+  for (let index = 0; index < signedTransactions.length; index++) {
+    const signedTx = signedTransactions[index]
+    try {
+      const txId = await connection.sendRawTransaction(signedTx.serialize())
+      await connection.confirmTransaction(txId, 'confirmed')
+      const { cardTypeId, mintKeypair } = transactionsData[index]
+      console.log(`Draw ${index + 1}: Card ${cardTypeId}, TX: ${txId}`)
+      results.push({
+        txId,
+        cardTypeId,
+        mintAddress: mintKeypair.publicKey.toBase58(),
+      })
+    } catch (error) {
+      console.error(`Draw ${index + 1} failed:`, error)
+    }
+    // 每次发送间隔 200ms，避免 429
+    if (index < signedTransactions.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+  }
+
+  console.log(`Multi-draw complete! ${results.length}/${count} successful`)
+  return results
+}
+
 // ============================================================================
 // 卡组 (Deck) 相关功能
 // ============================================================================
@@ -964,6 +1153,522 @@ export async function deleteDeck(
 
   await connection.confirmTransaction(txId, 'confirmed')
   console.log(`Deck deleted! Index: ${deckIndex}, TX:`, txId)
+
+  return txId
+}
+
+// ============================================================================
+// Marketplace 相关功能
+// ============================================================================
+
+// 获取 Listing PDA
+export function getListingPDA(cardMint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('listing'), cardMint.toBuffer()],
+    PROGRAM_ID
+  )
+}
+
+// 获取 Escrow Token Account PDA
+export function getEscrowPDA(cardMint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('escrow'), cardMint.toBuffer()],
+    PROGRAM_ID
+  )
+}
+
+// Listing 类型
+export interface Listing {
+  seller: PublicKey
+  cardMint: PublicKey
+  price: number
+  isActive: boolean
+  createdAt: number
+}
+
+// 解析 Listing 账户数据
+function parseListing(data: Buffer): Listing {
+  // 8 (discriminator) + 32 (seller) + 32 (card_mint) + 8 (price) + 1 (is_active) + 8 (created_at) + 1 (bump)
+  let offset = 8 // skip discriminator
+
+  const seller = new PublicKey(data.slice(offset, offset + 32))
+  offset += 32
+
+  const cardMint = new PublicKey(data.slice(offset, offset + 32))
+  offset += 32
+
+  const price = Number(data.readBigUInt64LE(offset))
+  offset += 8
+
+  const isActive = data[offset] === 1
+  offset += 1
+
+  const createdAt = Number(data.readBigInt64LE(offset))
+
+  return { seller, cardMint, price, isActive, createdAt }
+}
+
+// 获取所有活跃的 Listings
+export async function getActiveListings(): Promise<Listing[]> {
+  try {
+    // 只按 dataSize 过滤，然后在代码中检查 is_active
+    const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+      filters: [{ dataSize: 90 }], // Listing::LEN = 8 + 32 + 32 + 8 + 1 + 8 + 1 = 90
+    })
+
+    console.log(`Found ${accounts.length} listing accounts`)
+
+    const listings: Listing[] = []
+    for (const { account } of accounts) {
+      try {
+        const listing = parseListing(Buffer.from(account.data))
+        console.log('Parsed listing:', listing.cardMint.toBase58(), 'isActive:', listing.isActive)
+        if (listing.isActive) {
+          listings.push(listing)
+        }
+      } catch (e) {
+        console.error('Error parsing listing:', e)
+      }
+    }
+
+    console.log(`Found ${listings.length} active listings`)
+    return listings
+  } catch (error) {
+    console.error('Error getting active listings:', error)
+    return []
+  }
+}
+
+// 获取 Listing 的完整信息（包含卡牌数据）
+export interface ListingWithCard {
+  listing: Listing
+  cardInstance: CardInstance | null
+  cardTemplate: CardTemplate | null
+}
+
+export async function getListingsWithCards(): Promise<ListingWithCard[]> {
+  const listings = await getActiveListings()
+  const result: ListingWithCard[] = []
+
+  for (const listing of listings) {
+    try {
+      const [cardInstancePDA] = getCardInstancePDA(listing.cardMint)
+      const accountInfo = await connection.getAccountInfo(cardInstancePDA)
+      
+      let cardInstance: CardInstance | null = null
+      let cardTemplate: CardTemplate | null = null
+
+      if (accountInfo && accountInfo.data) {
+        cardInstance = parseCardInstance(Buffer.from(accountInfo.data))
+        cardTemplate = await getCardTemplate(cardInstance.cardTypeId)
+      }
+
+      result.push({ listing, cardInstance, cardTemplate })
+    } catch (e) {
+      console.error('Error getting card for listing:', e)
+      result.push({ listing, cardInstance: null, cardTemplate: null })
+    }
+  }
+
+  return result
+}
+
+// Anchor instruction discriminator for "list_card"
+// sha256("global:list_card")[0..8]
+function getListCardDiscriminator(): Buffer {
+  return Buffer.from([113, 226, 80, 193, 197, 19, 75, 161])
+}
+
+// Anchor instruction discriminator for "cancel_listing"
+// sha256("global:cancel_listing")[0..8]
+function getCancelListingDiscriminator(): Buffer {
+  return Buffer.from([41, 183, 50, 232, 230, 233, 157, 70])
+}
+
+// Anchor instruction discriminator for "buy_card"
+// sha256("global:buy_card")[0..8]
+function getBuyCardDiscriminator(): Buffer {
+  return Buffer.from([113, 142, 149, 246, 22, 115, 156, 154])
+}
+
+// 上架卡牌到市场
+export async function listCard(
+  sellerPubkey: PublicKey,
+  cardMint: PublicKey,
+  price: number
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [listingPDA] = getListingPDA(cardMint)
+  
+  // 获取 seller 的 token account
+  const sellerTokenAccount = getAssociatedTokenAddress(cardMint, sellerPubkey)
+  
+  // Escrow token account (PDA-based, not ATA)
+  const [escrowTokenAccount] = getEscrowPDA(cardMint)
+
+  // 构建指令数据: discriminator + price (u64)
+  const data = Buffer.alloc(16)
+  getListCardDiscriminator().copy(data, 0)
+  // 手动写入 u64 (little endian)
+  const priceBuffer = Buffer.alloc(8)
+  priceBuffer.writeUInt32LE(price & 0xFFFFFFFF, 0)
+  priceBuffer.writeUInt32LE(Math.floor(price / 0x100000000), 4)
+  priceBuffer.copy(data, 8)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: listingPDA, isSigner: false, isWritable: true },
+      { pubkey: cardMint, isSigner: false, isWritable: false },
+      { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: escrowTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: sellerPubkey, isSigner: true, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: RENT_SYSVAR_ID, isSigner: false, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = sellerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Card listed! Mint: ${cardMint.toBase58()}, Price: ${price}, TX:`, txId)
+
+  return txId
+}
+
+// 取消上架
+export async function cancelListing(
+  sellerPubkey: PublicKey,
+  cardMint: PublicKey
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [listingPDA] = getListingPDA(cardMint)
+  
+  const sellerTokenAccount = getAssociatedTokenAddress(cardMint, sellerPubkey)
+  const [escrowTokenAccount] = getEscrowPDA(cardMint)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: listingPDA, isSigner: false, isWritable: true },
+      { pubkey: cardMint, isSigner: false, isWritable: false },
+      { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: escrowTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: sellerPubkey, isSigner: true, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data: getCancelListingDiscriminator(),
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = sellerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Listing cancelled! Mint: ${cardMint.toBase58()}, TX:`, txId)
+
+  return txId
+}
+
+// 购买卡牌 (使用 PlayerProfile 中的 BUG 余额)
+export async function buyCard(
+  buyerPubkey: PublicKey,
+  cardMint: PublicKey,
+  sellerPubkey: PublicKey
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [listingPDA] = getListingPDA(cardMint)
+  const [buyerProfilePDA] = getPlayerProfilePDA(buyerPubkey)
+  const [sellerProfilePDA] = getPlayerProfilePDA(sellerPubkey)
+  const [cardInstancePDA] = getCardInstancePDA(cardMint)
+  
+  const [escrowTokenAccount] = getEscrowPDA(cardMint)
+  const buyerTokenAccount = getAssociatedTokenAddress(cardMint, buyerPubkey)
+
+  console.log('buyCard accounts:', {
+    listing: listingPDA.toBase58(),
+    seller: sellerPubkey.toBase58(),
+    buyerProfile: buyerProfilePDA.toBase58(),
+    sellerProfile: sellerProfilePDA.toBase58(),
+    cardMint: cardMint.toBase58(),
+    cardInstance: cardInstancePDA.toBase58(),
+    escrowToken: escrowTokenAccount.toBase58(),
+    buyerToken: buyerTokenAccount.toBase58(),
+    buyer: buyerPubkey.toBase58(),
+  })
+
+  // 验证买家和卖家的 PlayerProfile 是否存在
+  const buyerProfileInfo = await connection.getAccountInfo(buyerProfilePDA)
+  const sellerProfileInfo = await connection.getAccountInfo(sellerProfilePDA)
+  
+  console.log('Profile verification:', {
+    buyerProfileExists: !!buyerProfileInfo,
+    buyerProfileOwner: buyerProfileInfo?.owner?.toBase58(),
+    sellerProfileExists: !!sellerProfileInfo,
+    sellerProfileOwner: sellerProfileInfo?.owner?.toBase58(),
+  })
+
+  if (!buyerProfileInfo || buyerProfileInfo.owner.toBase58() !== PROGRAM_ID.toBase58()) {
+    throw new Error(`Buyer profile not found or not initialized. Please register first. Owner: ${buyerProfileInfo?.owner?.toBase58() || 'null'}`)
+  }
+  
+  if (!sellerProfileInfo || sellerProfileInfo.owner.toBase58() !== PROGRAM_ID.toBase58()) {
+    throw new Error(`Seller profile not found or not initialized. Owner: ${sellerProfileInfo?.owner?.toBase58() || 'null'}`)
+  }
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: listingPDA, isSigner: false, isWritable: true },
+      { pubkey: sellerPubkey, isSigner: false, isWritable: true },  // seller 接收租金退款
+      { pubkey: buyerProfilePDA, isSigner: false, isWritable: true },
+      { pubkey: sellerProfilePDA, isSigner: false, isWritable: true },
+      { pubkey: cardMint, isSigner: false, isWritable: false },
+      { pubkey: cardInstancePDA, isSigner: false, isWritable: true },
+      { pubkey: escrowTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: buyerPubkey, isSigner: true, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: RENT_SYSVAR_ID, isSigner: false, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data: getBuyCardDiscriminator(),
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = buyerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Card bought! Mint: ${cardMint.toBase58()}, TX:`, txId)
+
+  return txId
+}
+
+// 检查卡牌是否已上架
+export async function getCardListing(cardMint: PublicKey): Promise<Listing | null> {
+  try {
+    const [listingPDA] = getListingPDA(cardMint)
+    const accountInfo = await connection.getAccountInfo(listingPDA)
+
+    if (accountInfo && accountInfo.data) {
+      const listing = parseListing(Buffer.from(accountInfo.data))
+      if (listing.isActive) {
+        return listing
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting card listing:', error)
+    return null
+  }
+}
+
+// ============================================================================
+// BUG Token 购买功能
+// ============================================================================
+
+// Anchor instruction discriminator for "buy_bug_tokens"
+// sha256("global:buy_bug_tokens")[0..8]
+function getBuyBugTokensDiscriminator(): Buffer {
+  return Buffer.from([238, 26, 9, 188, 146, 2, 121, 91])
+}
+
+// Treasury 地址 (authority)
+export const TREASURY = new PublicKey('71XmXhn6ZTtEea71D6jJC7WyYLtx49hVX63bzGLVMo3L')
+
+// GameConfig 类型 (不再包含 bugTokenMint，BUG 余额存在 PlayerProfile 里)
+export interface GameConfig {
+  authority: PublicKey
+  cardCreators: PublicKey[]
+  normalPackPrice: number
+  starterPackCardCount: number
+  solToBugRate: number
+  ticketPrice: number
+  bump: number
+}
+
+// 解析 GameConfig 账户数据
+function parseGameConfig(data: Buffer): GameConfig {
+  // 8 (discriminator) + 32 (authority) + 4 + (32 * n) (card_creators vec) 
+  // + 8 (normal_pack_price) + 1 (starter_pack_card_count) 
+  // + 8 (sol_to_bug_rate) + 8 (ticket_price) + 1 (bump)
+  let offset = 8 // skip discriminator
+
+  const authority = new PublicKey(data.slice(offset, offset + 32))
+  offset += 32
+
+  // card_creators vec
+  const creatorsLen = data.readUInt32LE(offset)
+  offset += 4
+  const cardCreators: PublicKey[] = []
+  for (let i = 0; i < creatorsLen; i++) {
+    cardCreators.push(new PublicKey(data.slice(offset, offset + 32)))
+    offset += 32
+  }
+
+  const normalPackPrice = Number(data.readBigUInt64LE(offset))
+  offset += 8
+
+  const starterPackCardCount = data[offset]
+  offset += 1
+
+  const solToBugRate = Number(data.readBigUInt64LE(offset))
+  offset += 8
+
+  const ticketPrice = Number(data.readBigUInt64LE(offset))
+  offset += 8
+
+  const bump = data[offset]
+
+  return {
+    authority,
+    cardCreators,
+    normalPackPrice,
+    starterPackCardCount,
+    solToBugRate,
+    ticketPrice,
+    bump,
+  }
+}
+
+// 获取链上 GameConfig
+export async function getGameConfig(): Promise<GameConfig | null> {
+  try {
+    const [gameConfigPDA] = getGameConfigPDA()
+    const accountInfo = await connection.getAccountInfo(gameConfigPDA)
+
+    if (accountInfo && accountInfo.data) {
+      const config = parseGameConfig(Buffer.from(accountInfo.data))
+      console.log('GameConfig loaded:', {
+        authority: config.authority.toBase58(),
+        solToBugRate: config.solToBugRate,
+        ticketPrice: config.ticketPrice,
+      })
+      return config
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting game config:', error)
+    return null
+  }
+}
+
+// 用 SOL 购买 BUG 代币 (余额存在 PlayerProfile 里)
+export async function buyBugTokens(
+  playerPubkey: PublicKey,
+  solAmount: number // lamports
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [gameConfigPDA] = getGameConfigPDA()
+  const [playerProfilePDA] = getPlayerProfilePDA(playerPubkey)
+
+  // 构建指令数据: discriminator + sol_amount (u64)
+  const data = Buffer.alloc(16)
+  getBuyBugTokensDiscriminator().copy(data, 0)
+  // 手动写入 u64 (little endian)
+  const amountBuffer = Buffer.alloc(8)
+  amountBuffer.writeUInt32LE(solAmount & 0xffffffff, 0)
+  amountBuffer.writeUInt32LE(Math.floor(solAmount / 0x100000000), 4)
+  amountBuffer.copy(data, 8)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: gameConfigPDA, isSigner: false, isWritable: false },
+      { pubkey: playerProfilePDA, isSigner: false, isWritable: true },
+      { pubkey: TREASURY, isSigner: false, isWritable: true },
+      { pubkey: playerPubkey, isSigner: true, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = playerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Bought BUG tokens for ${solAmount} lamports, TX:`, txId)
+
+  return txId
+}
+
+// 获取玩家的 BUG 代币余额 (从 PlayerProfile 读取)
+export async function getPlayerBugBalance(playerPubkey: PublicKey): Promise<number> {
+  try {
+    const profile = await getPlayerProfile(playerPubkey)
+    return profile?.bugBalance || 0
+  } catch (error) {
+    console.error('Error getting BUG balance:', error)
+    return 0
+  }
+}
+
+// ============================================================================
+// 用 BUG 购买 Gacha Tickets
+// ============================================================================
+
+// Anchor instruction discriminator for "buy_gacha_tickets"
+// sha256("global:buy_gacha_tickets")[0..8]
+function getBuyGachaTicketsDiscriminator(): Buffer {
+  return Buffer.from([12, 127, 157, 101, 178, 237, 195, 53])
+}
+
+// 用 BUG 余额购买 gacha tickets
+export async function buyGachaTickets(
+  playerPubkey: PublicKey,
+  ticketCount: number
+): Promise<string> {
+  const phantom = getPhantomProvider()
+  const [gameConfigPDA] = getGameConfigPDA()
+  const [playerProfilePDA] = getPlayerProfilePDA(playerPubkey)
+
+  // 构建指令数据: discriminator + ticket_count (u64)
+  const data = Buffer.alloc(16)
+  getBuyGachaTicketsDiscriminator().copy(data, 0)
+  // 手动写入 u64 (little endian)
+  const countBuffer = Buffer.alloc(8)
+  countBuffer.writeUInt32LE(ticketCount & 0xffffffff, 0)
+  countBuffer.writeUInt32LE(Math.floor(ticketCount / 0x100000000), 4)
+  countBuffer.copy(data, 8)
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: gameConfigPDA, isSigner: false, isWritable: false },
+      { pubkey: playerProfilePDA, isSigner: false, isWritable: true },
+      { pubkey: playerPubkey, isSigner: true, isWritable: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  })
+
+  const transaction = new Transaction().add(instruction)
+  transaction.feePayer = playerPubkey
+  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+
+  const signedTx = await phantom.signTransaction(transaction)
+  const txId = await connection.sendRawTransaction(signedTx.serialize())
+
+  await connection.confirmTransaction(txId, 'confirmed')
+  console.log(`Bought ${ticketCount} gacha tickets, TX:`, txId)
 
   return txId
 }

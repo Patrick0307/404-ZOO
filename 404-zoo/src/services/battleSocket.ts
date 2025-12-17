@@ -50,6 +50,12 @@ export interface BattleResultPayload {
   round: number
 }
 
+export interface CoinFlipPayload {
+  result: 'heads' | 'tails'
+  firstPlayer: 'p1' | 'p2'
+  firstName: string
+}
+
 export interface BattleUnitData {
   id: string
   cardTypeId: number
@@ -156,8 +162,8 @@ class BattleSocketService {
   }
 
   // 设置玩家信息
-  setProfile(name: string, rating: number) {
-    this.send('set_profile', { name, rating })
+  setProfile(name: string, rating: number, wallet?: string) {
+    this.send('set_profile', { name, rating, wallet })
   }
 
   // 开始匹配

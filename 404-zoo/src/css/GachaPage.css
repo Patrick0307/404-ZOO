@@ -749,3 +749,175 @@
   0% { transform: translateY(0); }
   100% { transform: translateY(4px); }
 }
+
+/* ========== 10 DRAW STYLES ========== */
+.ten-draw-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.3s ease;
+}
+
+.ten-draw-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.ten-draw-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  perspective: 1000px;
+}
+
+.ten-draw-card {
+  width: 140px;
+  height: 200px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.8s ease;
+  cursor: pointer;
+  animation: cardAppear 0.5s ease backwards;
+}
+
+.ten-draw-card.flipped {
+  transform: rotateY(180deg);
+}
+
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.ten-draw-card .card-back,
+.ten-draw-card .card-front {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ten-draw-card .card-back {
+  background: linear-gradient(135deg, #1a0a0a, #2a1010);
+  border: 2px solid #ff3366;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
+}
+
+.ten-draw-card .card-back-content {
+  text-align: center;
+}
+
+.ten-draw-card .card-back-logo {
+  font-size: 36px;
+  color: #ff3366;
+  animation: warningPulse 1s infinite;
+}
+
+.ten-draw-card .card-back-text {
+  font-size: 12px;
+  color: #ff3366;
+  margin-top: 8px;
+}
+
+@keyframes warningPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.ten-draw-card .card-front {
+  background: linear-gradient(135deg, #0a1a1a, #102020);
+  border: 2px solid #00ffff;
+  transform: rotateY(180deg);
+  padding: 8px;
+}
+
+.ten-draw-card .card-front-stars {
+  font-size: 10px;
+  color: #ffd700;
+  margin-bottom: 4px;
+}
+
+.ten-draw-card .card-front-image {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ten-draw-card .card-front-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ten-draw-card .card-front-name {
+  font-size: 10px;
+  color: #00ffff;
+  margin-top: 8px;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rarity styles for 10 draw */
+.ten-draw-card.rarity-1 .card-front {
+  border-color: #2196f3;
+  box-shadow: 0 0 15px rgba(33, 150, 243, 0.5);
+}
+
+.ten-draw-card.rarity-1 .card-front-stars {
+  color: #2196f3;
+}
+
+.ten-draw-card.rarity-2 .card-front {
+  border-color: #ffd700;
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+  animation: legendaryGlow 1.5s infinite;
+}
+
+.ten-draw-card.rarity-2 .card-front-stars {
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+@keyframes legendaryGlow {
+  0%, 100% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+  50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.9); }
+}
+
+.ten-draw-hint {
+  font-size: 16px;
+  color: rgba(0, 255, 255, 0.6);
+  animation: hintBlink 1s infinite;
+}
+
+@keyframes hintBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

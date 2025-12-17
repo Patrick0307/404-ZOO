@@ -1,11 +1,12 @@
 import http from 'http'
 import { WebSocketServer } from 'ws'
 import { v4 as uuidv4 } from 'uuid'
+import { recordMatchResult } from './contract.js'
 
 const PORT = process.env.PORT || 8080
 
 // 存储
-const players = new Map() // odId -> { odId, ws, name, rating, deck, status, roomId }
+const players = new Map() // odId -> { odId, ws, name, rating, deck, status, roomId, wallet }
 const matchQueue = [] // 等待匹配的玩家
 const rooms = new Map() // roomId -> { id, players: [p1, p2], state }
 
@@ -38,6 +39,7 @@ wss.on('connection', (ws) => {
     deck: null,
     status: 'idle',
     roomId: null,
+    wallet: null, // Solana wallet address for trophy updates
   })
 
   ws.on('message', (data) => {
@@ -86,6 +88,7 @@ function handleMessage(odId, message) {
     case 'set_profile':
       player.name = payload.name || 'Unknown'
       player.rating = payload.rating || 1000
+      player.wallet = payload.wallet || null // Store wallet address for trophy updates
       break
 
     case 'start_match':
@@ -160,7 +163,7 @@ function createRoom(p1Id, p2Id) {
     state: {
       round: 1,
       phase: 'preparation',
-      timer: 30,
+      timer: 5,
       playerStates: {
         [p1Id]: { hp: 100, gold: 10, units: [], bench: [], ready: false, battleDone: false },
         [p2Id]: { hp: 100, gold: 10, units: [], bench: [], ready: false, battleDone: false },
@@ -209,13 +212,19 @@ function startPreparationTimer(roomId) {
   room.state.timer = 30
   room.state.phase = 'preparation'
   
-  // 重置战斗完成标记和单位状态
+  // 重置战斗完成标记，但保留场上单位（不再清空）
   for (const odId of room.players) {
     if (room.state.playerStates[odId]) {
       room.state.playerStates[odId].battleDone = false
       room.state.playerStates[odId].ready = false
-      // 清空场上单位（玩家需要重新布阵）
-      room.state.playerStates[odId].units = []
+      // 不再清空场上单位，让玩家保留上一回合的布阵
+      // 只需要恢复单位的血量
+      if (room.state.playerStates[odId].units) {
+        room.state.playerStates[odId].units = room.state.playerStates[odId].units.map(u => ({
+          ...u,
+          health: u.maxHealth || u.health
+        }))
+      }
     }
   }
 
@@ -271,7 +280,11 @@ function handlePlayerAction(odId, payload) {
     case 'buy_card':
       playerState.gold = data.gold
       playerState.bench = data.bench
-      console.log(`   [${player.name}] buy_card: bench=${data.bench?.length || 0}`)
+      // Also update units if provided (for merge scenarios)
+      if (data.units) {
+        playerState.units = data.units
+      }
+      console.log(`   [${player.name}] buy_card: units=${data.units?.length || playerState.units?.length || 0}, bench=${data.bench?.length || 0}`)
       break
 
     case 'place_unit':
@@ -340,44 +353,58 @@ function selectAttackTarget(attacker, enemies) {
   const aliveEnemies = enemies.filter(e => e.health > 0)
   if (aliveEnemies.length === 0) return null
 
-  const attackerPos = attacker.position ?? 0
   const traitType = attacker.traitType ?? 0
+  const attackerPos = attacker.position ?? 0
 
-  // Warrior(0): 对位优先
+  // Warrior(0): 优先打前排对位，没有则打前排编号最小，再打后排
   if (traitType === 0) {
-    const opposite = aliveEnemies.find(e => e.position === attackerPos)
-    if (opposite) return opposite
-    return [...aliveEnemies].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
+    const frontRow = aliveEnemies.filter(e => (e.position ?? 0) < 3)
+    if (frontRow.length > 0) {
+      // 优先对位
+      const samePos = frontRow.find(e => e.position === attackerPos)
+      if (samePos) return samePos
+      // 没有对位则打编号最小
+      return [...frontRow].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
+    }
+    // 前排没人就打后排（对位优先）
+    const backRow = aliveEnemies.filter(e => (e.position ?? 0) >= 3)
+    const backSamePos = backRow.find(e => e.position === attackerPos + 3)
+    if (backSamePos) return backSamePos
+    return [...backRow].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
   }
 
-  // Archer(1): 优先后排(3-5)
+  // Archer(1): 优先打后排对位，没有则打后排编号最小，再打前排
   if (traitType === 1) {
     const backRow = aliveEnemies.filter(e => (e.position ?? 0) >= 3)
     if (backRow.length > 0) {
-      return [...backRow].sort((a, b) =>
-        Math.abs((a.position ?? 0) - attackerPos) - Math.abs((b.position ?? 0) - attackerPos)
-      )[0]
+      // 优先对位（射手在后排3-5，对位也是3-5）
+      const samePos = backRow.find(e => e.position === attackerPos)
+      if (samePos) return samePos
+      // 没有对位则打编号最小
+      return [...backRow].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
     }
+    // 后排没人就打前排（对位优先）
     const frontRow = aliveEnemies.filter(e => (e.position ?? 0) < 3)
-    if (frontRow.length > 0) {
-      return [...frontRow].sort((a, b) =>
-        Math.abs((a.position ?? 0) - attackerPos) - Math.abs((b.position ?? 0) - attackerPos)
-      )[0]
-    }
-    return aliveEnemies[0]
+    const frontSamePos = frontRow.find(e => e.position === attackerPos - 3)
+    if (frontSamePos) return frontSamePos
+    return [...frontRow].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
   }
 
-  // Assassin(2): 攻击攻击力最高的
+  // Assassin(2): 打血量最低的
   if (traitType === 2) {
-    const maxAttack = Math.max(...aliveEnemies.map(e => e.attack))
-    const highest = aliveEnemies.filter(e => e.attack === maxAttack)
-    return highest[0] // 不用随机，保证双方一致
+    const minHealth = Math.min(...aliveEnemies.map(e => e.health))
+    const lowest = aliveEnemies.filter(e => e.health === minHealth)
+    return lowest[0]
   }
 
-  // 默认：对位优先
-  const opposite = aliveEnemies.find(e => e.position === attackerPos)
-  if (opposite) return opposite
-  return [...aliveEnemies].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
+  // 默认：打前排（对位优先）
+  const frontRow = aliveEnemies.filter(e => (e.position ?? 0) < 3)
+  if (frontRow.length > 0) {
+    const samePos = frontRow.find(e => e.position === attackerPos)
+    if (samePos) return samePos
+    return [...frontRow].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0]
+  }
+  return aliveEnemies[0]
 }
 
 // 获取职业名称
@@ -389,11 +416,22 @@ function getTraitName(traitType) {
 // 获取目标描述
 function getTargetDesc(attacker, target) {
   const traitType = attacker.traitType ?? 0
+  const attackerPos = attacker.position ?? 0
   const targetPos = target.position ?? 0
-  if (traitType === 0) return targetPos === (attacker.position ?? 0) ? '对位' : '顺位'
-  if (traitType === 1) return targetPos >= 3 ? '后排' : '前排'
-  if (traitType === 2) return '高攻'
-  return '对位'
+  const isOpposite = attackerPos === targetPos || 
+                     attackerPos === targetPos + 3 || 
+                     attackerPos === targetPos - 3
+  
+  if (traitType === 0) {
+    const row = targetPos < 3 ? '前排' : '后排'
+    return isOpposite ? `${row}对位` : row
+  }
+  if (traitType === 1) {
+    const row = targetPos >= 3 ? '后排' : '前排'
+    return isOpposite ? `${row}对位` : row
+  }
+  if (traitType === 2) return '低血'
+  return targetPos < 3 ? '前排' : '后排'
 }
 
 // 开始战斗 - 服务器计算并同步
@@ -413,12 +451,12 @@ function startBattle(roomId) {
   const p1State = room.state.playerStates[p1Id]
   const p2State = room.state.playerStates[p2Id]
 
-  const p1 = players.get(p1Id)
-  const p2 = players.get(p2Id)
+  const p1Player = players.get(p1Id)
+  const p2Player = players.get(p2Id)
 
   console.log(`⚔️ Battle started in room ${roomId.slice(0, 8)}, round ${room.state.round}`)
-  console.log(`   P1 (${p1?.name}) units: ${p1State.units.length}`)
-  console.log(`   P2 (${p2?.name}) units: ${p2State.units.length}`)
+  console.log(`   ${p1Player?.name} units: ${p1State.units.length}`)
+  console.log(`   ${p2Player?.name} units: ${p2State.units.length}`)
 
   // 发送战斗开始
   broadcastToRoom(roomId, 'battle_start', {
@@ -439,6 +477,10 @@ async function executeBattleOnServer(roomId) {
   const [p1Id, p2Id] = room.players
   const p1State = room.state.playerStates[p1Id]
   const p2State = room.state.playerStates[p2Id]
+  
+  // 获取玩家名字
+  const p1Name = players.get(p1Id)?.name || 'Player1'
+  const p2Name = players.get(p2Id)?.name || 'Player2'
 
   // 深拷贝单位用于战斗（确保 units 是数组）
   const p1Units = (p1State.units || []).filter(u => u.position !== null).map(u => ({ ...u }))
@@ -446,145 +488,168 @@ async function executeBattleOnServer(roomId) {
 
   const currentRound = room.state.round
 
-  // 发送战斗开始日志
+  // 处理一方或双方没有单位的情况
+  if (p1Units.length === 0 && p2Units.length === 0) {
+    broadcastToRoom(roomId, 'battle_log', { log: '🤝 双方都没有出战单位，平局！' })
+    await finishBattle(roomId, p1Units, p2Units, 'draw', 'draw', currentRound)
+    return
+  } else if (p1Units.length === 0) {
+    broadcastToRoom(roomId, 'battle_log', { log: `💔 ${p1Name} 没有出战单位，${p2Name} 获胜！` })
+    await finishBattle(roomId, p1Units, p2Units, 'lose', 'win', currentRound)
+    return
+  } else if (p2Units.length === 0) {
+    broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${p2Name} 没有出战单位，${p1Name} 获胜！` })
+    await finishBattle(roomId, p1Units, p2Units, 'win', 'lose', currentRound)
+    return
+  }
+
+  // 🪙 抛硬币决定先手
+  const coinFlip = Math.random() < 0.5 // true = 正面(P1先), false = 反面(P2先)
+  const firstPlayer = coinFlip ? 'p1' : 'p2'
+  const firstName = coinFlip ? p1Name : p2Name
+  const secondName = coinFlip ? p2Name : p1Name
+  
+  // 发送抛硬币事件
+  broadcastToRoom(roomId, 'coin_flip', {
+    result: coinFlip ? 'heads' : 'tails',
+    firstPlayer: firstPlayer,
+    firstName: firstName,
+  })
+  
+  broadcastToRoom(roomId, 'battle_log', {
+    log: `🪙 抛硬币... ${coinFlip ? '正面' : '反面'}！${firstName} 先手！`,
+  })
+  await sleep(2000) // 等待硬币动画
+
   broadcastToRoom(roomId, 'battle_log', {
     log: `⚔️ 第 ${currentRound} 回合战斗开始！`,
   })
   await sleep(500)
   broadcastToRoom(roomId, 'battle_log', {
-    log: `P1 ${p1Units.length} 单位 vs P2 ${p2Units.length} 单位`,
+    log: `${p1Name} ${p1Units.length} 单位 vs ${p2Name} ${p2Units.length} 单位`,
   })
   await sleep(1000)
 
-  // 处理一方或双方没有单位的情况
-  if (p1Units.length === 0 && p2Units.length === 0) {
-    // 双方都没有单位，平局
-    broadcastToRoom(roomId, 'battle_log', { log: '🤝 双方都没有出战单位，平局！' })
-    await finishBattle(roomId, p1Units, p2Units, 'draw', 'draw', currentRound)
-    return
-  } else if (p1Units.length === 0) {
-    // P1 没有单位，P2 获胜
-    broadcastToRoom(roomId, 'battle_log', { log: '💔 P1 没有出战单位，P2 获胜！' })
-    await finishBattle(roomId, p1Units, p2Units, 'lose', 'win', currentRound)
-    return
-  } else if (p2Units.length === 0) {
-    // P2 没有单位，P1 获胜
-    broadcastToRoom(roomId, 'battle_log', { log: '🎉 P2 没有出战单位，P1 获胜！' })
-    await finishBattle(roomId, p1Units, p2Units, 'win', 'lose', currentRound)
-    return
-  }
+  // 根据先手顺序设置攻击方
+  const firstUnits = coinFlip ? p1Units : p2Units
+  const secondUnits = coinFlip ? p2Units : p1Units
+  const firstSide = coinFlip ? 'p1' : 'p2'
+  const secondSide = coinFlip ? 'p2' : 'p1'
+  const firstPlayerName = firstName
+  const secondPlayerName = secondName
 
   let turnCount = 0
   const maxTurns = 100
 
-  // 战斗循环
+  // 战斗循环 - 按位置一对一轮流攻击
   while (turnCount < maxTurns) {
     turnCount++
 
-    const p1Alive = p1Units.filter(u => u.health > 0).length
-    const p2Alive = p2Units.filter(u => u.health > 0).length
+    const firstAlive = firstUnits.filter(u => u.health > 0).length
+    const secondAlive = secondUnits.filter(u => u.health > 0).length
 
-    if (p2Alive === 0) {
-      broadcastToRoom(roomId, 'battle_log', { log: '🎉 P1 获胜！P2 全军覆没！' })
+    if (secondAlive === 0) {
+      broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${firstPlayerName} 获胜！${secondPlayerName} 全军覆没！` })
       break
     }
-    if (p1Alive === 0) {
-      broadcastToRoom(roomId, 'battle_log', { log: '🎉 P2 获胜！P1 全军覆没！' })
+    if (firstAlive === 0) {
+      broadcastToRoom(roomId, 'battle_log', { log: `🎉 ${secondPlayerName} 获胜！${firstPlayerName} 全军覆没！` })
       break
     }
 
     broadcastToRoom(roomId, 'battle_log', { log: `--- 第 ${turnCount} 轮 ---` })
 
-    // 按位置 0→5 循环攻击
+    // 按位置 0→5 循环，每个位置先手A打后手B，然后后手B打先手A
     for (let pos = 0; pos < 6; pos++) {
-      // P1 攻击
-      const p1Unit = p1Units.find(u => u.position === pos && u.health > 0)
-      if (p1Unit) {
-        const target = selectAttackTarget(p1Unit, p2Units)
+      // 检查是否还有存活单位
+      if (!firstUnits.some(u => u.health > 0) || !secondUnits.some(u => u.health > 0)) break
+
+      // 先手方位置pos的单位攻击
+      const firstUnit = firstUnits.find(u => u.position === pos && u.health > 0)
+      if (firstUnit) {
+        const target = selectAttackTarget(firstUnit, secondUnits)
         if (target) {
-          target.health -= p1Unit.attack
-          const traitName = getTraitName(p1Unit.traitType)
-          const targetDesc = getTargetDesc(p1Unit, target)
+          target.health -= firstUnit.attack
+          const traitName = getTraitName(firstUnit.traitType)
+          const targetDesc = getTargetDesc(firstUnit, target)
           
           broadcastToRoom(roomId, 'battle_attack', {
-            attacker: { ...p1Unit, side: 'p1' },
-            target: { ...target, side: 'p2' },
-            damage: p1Unit.attack,
-            log: `[${traitName}] ${p1Unit.name}⭐${p1Unit.star} → ${target.name}(${targetDesc}) -${p1Unit.attack} HP (剩余: ${Math.max(0, target.health)})`,
+            attacker: { ...firstUnit, side: firstSide },
+            target: { ...target, side: secondSide },
+            damage: firstUnit.attack,
+            log: `[${traitName}] ${firstUnit.name}⭐${firstUnit.star} → ${target.name}(${targetDesc}) -${firstUnit.attack} HP (剩余: ${Math.max(0, target.health)})`,
           })
 
           if (target.health <= 0) {
-            broadcastToRoom(roomId, 'battle_log', { log: `💀 P2 ${target.name} 阵亡！` })
+            broadcastToRoom(roomId, 'battle_log', { log: `💀 [${secondPlayerName}] ${target.name} 阵亡！` })
           }
 
           // 同步单位状态
           broadcastToRoom(roomId, 'battle_units_update', {
-            p1Units: p1Units.map(u => ({ ...u })),
-            p2Units: p2Units.map(u => ({ ...u })),
+            p1Units: (coinFlip ? firstUnits : secondUnits).map(u => ({ ...u })),
+            p2Units: (coinFlip ? secondUnits : firstUnits).map(u => ({ ...u })),
           })
 
-          await sleep(1000)
+          await sleep(1500) // 等待攻击动画
 
-          if (!p2Units.some(u => u.health > 0)) break
+          if (!secondUnits.some(u => u.health > 0)) break
         }
       }
 
-      // P2 攻击
-      const p2Unit = p2Units.find(u => u.position === pos && u.health > 0)
-      if (p2Unit) {
-        const target = selectAttackTarget(p2Unit, p1Units)
+      // 后手方位置pos的单位反击
+      const secondUnit = secondUnits.find(u => u.position === pos && u.health > 0)
+      if (secondUnit) {
+        const target = selectAttackTarget(secondUnit, firstUnits)
         if (target) {
-          target.health -= p2Unit.attack
-          const traitName = getTraitName(p2Unit.traitType)
-          const targetDesc = getTargetDesc(p2Unit, target)
+          target.health -= secondUnit.attack
+          const traitName = getTraitName(secondUnit.traitType)
+          const targetDesc = getTargetDesc(secondUnit, target)
 
           broadcastToRoom(roomId, 'battle_attack', {
-            attacker: { ...p2Unit, side: 'p2' },
-            target: { ...target, side: 'p1' },
-            damage: p2Unit.attack,
-            log: `[${traitName}] ${p2Unit.name}⭐${p2Unit.star} → ${target.name}(${targetDesc}) -${p2Unit.attack} HP (剩余: ${Math.max(0, target.health)})`,
+            attacker: { ...secondUnit, side: secondSide },
+            target: { ...target, side: firstSide },
+            damage: secondUnit.attack,
+            log: `[${traitName}] ${secondUnit.name}⭐${secondUnit.star} → ${target.name}(${targetDesc}) -${secondUnit.attack} HP (剩余: ${Math.max(0, target.health)})`,
           })
 
           if (target.health <= 0) {
-            broadcastToRoom(roomId, 'battle_log', { log: `💀 P1 ${target.name} 阵亡！` })
+            broadcastToRoom(roomId, 'battle_log', { log: `💀 [${firstPlayerName}] ${target.name} 阵亡！` })
           }
 
           // 同步单位状态
           broadcastToRoom(roomId, 'battle_units_update', {
-            p1Units: p1Units.map(u => ({ ...u })),
-            p2Units: p2Units.map(u => ({ ...u })),
+            p1Units: (coinFlip ? firstUnits : secondUnits).map(u => ({ ...u })),
+            p2Units: (coinFlip ? secondUnits : firstUnits).map(u => ({ ...u })),
           })
 
-          await sleep(1000)
+          await sleep(1500) // 等待攻击动画
 
-          if (!p1Units.some(u => u.health > 0)) break
+          if (!firstUnits.some(u => u.health > 0)) break
         }
       }
-
-      if (!p1Units.some(u => u.health > 0) || !p2Units.some(u => u.health > 0)) break
     }
   }
 
-  // 结算
-  const p1Alive = p1Units.filter(u => u.health > 0).length
-  const p2Alive = p2Units.filter(u => u.health > 0).length
+  // 结算 - 根据先手顺序还原到p1/p2
+  const p1AliveCount = p1Units.filter(u => u.health > 0).length
+  const p2AliveCount = p2Units.filter(u => u.health > 0).length
 
   let p1Result, p2Result
-  if (p2Alive === 0 && p1Alive > 0) {
+  if (p2AliveCount === 0 && p1AliveCount > 0) {
     p1Result = 'win'
     p2Result = 'lose'
-  } else if (p1Alive === 0 && p2Alive > 0) {
+  } else if (p1AliveCount === 0 && p2AliveCount > 0) {
     p1Result = 'lose'
     p2Result = 'win'
-  } else if (p1Alive === 0 && p2Alive === 0) {
+  } else if (p1AliveCount === 0 && p2AliveCount === 0) {
     p1Result = 'draw'
     p2Result = 'draw'
   } else {
     // 回合耗尽，比较存活数
-    if (p1Alive > p2Alive) {
+    if (p1AliveCount > p2AliveCount) {
       p1Result = 'win'
       p2Result = 'lose'
-    } else if (p1Alive < p2Alive) {
+    } else if (p1AliveCount < p2AliveCount) {
       p1Result = 'lose'
       p2Result = 'win'
     } else {
@@ -631,9 +696,38 @@ async function executeBattleOnServer(roomId) {
 
   // 检查游戏是否结束
   if (p1State.hp <= 0 || p2State.hp <= 0) {
-    const winner = p1State.hp > 0 ? p1Id : p2Id
+    const winnerId = p1State.hp > 0 ? p1Id : p2Id
+    const loserId = p1State.hp > 0 ? p2Id : p1Id
+    const winner = players.get(winnerId)
+    const loser = players.get(loserId)
+    
+    // Record match result on blockchain (async, don't block)
+    console.log(`📊 [executeBattle] Game over - Winner: ${winner?.name} (wallet: ${winner?.wallet || 'N/A'}), Loser: ${loser?.name} (wallet: ${loser?.wallet || 'N/A'})`)
+    if (winner?.wallet && loser?.wallet) {
+      recordMatchResult(winner.wallet, loser.wallet)
+        .then(result => {
+          if (result.success) {
+            console.log(`🏆 Trophy updated on-chain: ${winner.name} +trophy, ${loser.name} -trophy`)
+            // Notify players about trophy update
+            if (winner?.ws) {
+              send(winner.ws, 'trophy_updated', { type: 'win', txId: result.txId })
+            }
+            if (loser?.ws) {
+              send(loser.ws, 'trophy_updated', { type: 'lose', txId: result.txId })
+            }
+          } else {
+            console.warn(`⚠️ Failed to update trophies: ${result.error}`)
+          }
+        })
+        .catch(err => console.error('Trophy update error:', err))
+    } else {
+      console.warn('⚠️ Cannot update trophies: wallet addresses not available')
+    }
+    
     broadcastToRoom(roomId, 'game_over', {
-      winner: players.get(winner)?.name,
+      winner: winner?.name,
+      winnerId: winnerId,
+      loserId: loserId,
       p1HP: p1State.hp,
       p2HP: p2State.hp,
     })
@@ -699,9 +793,36 @@ async function finishBattle(roomId, p1Units, p2Units, p1Result, p2Result, curren
 
   // 检查游戏是否结束
   if (p1State.hp <= 0 || p2State.hp <= 0) {
-    const winner = p1State.hp > 0 ? p1Id : p2Id
+    const winnerId = p1State.hp > 0 ? p1Id : p2Id
+    const loserId = p1State.hp > 0 ? p2Id : p1Id
+    const winner = players.get(winnerId)
+    const loser = players.get(loserId)
+    
+    // Record match result on blockchain (async, don't block)
+    if (winner?.wallet && loser?.wallet) {
+      recordMatchResult(winner.wallet, loser.wallet)
+        .then(result => {
+          if (result.success) {
+            console.log(`🏆 Trophy updated on-chain: ${winner.name} +trophy, ${loser.name} -trophy`)
+            if (winner?.ws) {
+              send(winner.ws, 'trophy_updated', { type: 'win', txId: result.txId })
+            }
+            if (loser?.ws) {
+              send(loser.ws, 'trophy_updated', { type: 'lose', txId: result.txId })
+            }
+          } else {
+            console.warn(`⚠️ Failed to update trophies: ${result.error}`)
+          }
+        })
+        .catch(err => console.error('Trophy update error:', err))
+    } else {
+      console.warn('⚠️ Cannot update trophies: wallet addresses not available')
+    }
+    
     broadcastToRoom(roomId, 'game_over', {
-      winner: players.get(winner)?.name,
+      winner: winner?.name,
+      winnerId: winnerId,
+      loserId: loserId,
       p1HP: p1State.hp,
       p2HP: p2State.hp,
     })
