@@ -5,7 +5,6 @@ import {
   type PlayerDeck,
   getPlayerCardsWithTemplates,
   Rarity,
-  RarityNames,
 } from '../services/contract'
 import { getCachedPlayerCards, hasPlayerDataCache, type PlayerCardData } from '../services/playerDataCache'
 import { getCachedCards, getImageUrl } from '../services/cardCache'
