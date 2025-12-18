@@ -316,6 +316,16 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
             <img src="/gacha-warning.png" alt="Warning" className="warning-image" />
           </div>
 
+          {!hasClaimedFree && (
+            <button 
+              className="claim-free-btn-cyber"
+              onClick={handleClaimFree}
+              disabled={isLoading}
+            >
+              {isLoading ? 'CLAIMING...' : 'CLAIM_FREE_10'}
+            </button>
+          )}
+
           <button 
             className={`extract-btn btn-${animationState}`}
             onClick={handleSingleDraw}
@@ -331,16 +341,6 @@ function GachaPage({ playerProfile, onProfileUpdate }: GachaPageProps) {
           >
             {isLoading ? 'EXTRACTING...' : 'EXTRACT_FIVE'}
           </button>
-
-          {!hasClaimedFree && (
-            <button 
-              className="claim-free-btn-cyber"
-              onClick={handleClaimFree}
-              disabled={isLoading}
-            >
-              {isLoading ? 'CLAIMING...' : 'CLAIM_FREE_10'}
-            </button>
-          )}
         </div>
 
         {/* 右侧：抽卡日志 */}
