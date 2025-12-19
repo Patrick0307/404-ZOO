@@ -100,9 +100,9 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
 
   // SOL 充值档位 (lamports)
   const TOPUP_OPTIONS = [
-    { sol: 0.5, lamports: 500_000_000, bugAmount: 5000 },
-    { sol: 1, lamports: 1_000_000_000, bugAmount: 10000 },
-    { sol: 2, lamports: 2_000_000_000, bugAmount: 20000 },
+    { sol: 0.5, lamports: 500_000_000, bugAmount: 2500 },
+    { sol: 1, lamports: 1_000_000_000, bugAmount: 5000 },
+    { sol: 2, lamports: 2_000_000_000, bugAmount: 10000 },
   ]
 
   // Ticket 购买档位
