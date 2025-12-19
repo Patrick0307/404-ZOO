@@ -56,6 +56,11 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
       const config = await getGameConfig()
       if (config) {
         setTicketPrice(config.ticketPrice)
+        console.log('Game config loaded:', {
+          solToBugRate: config.solToBugRate,
+          ticketPrice: config.ticketPrice,
+          authority: config.authority.toBase58()
+        })
       }
     } catch (error) {
       console.error('Failed to load game config:', error)
@@ -98,7 +103,7 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
     }
   }
 
-  // SOL 充值档位 (lamports)
+  // SOL 充值档位 (lamports) - 正确兑换率为 1 SOL = 10,000 BUG
   const TOPUP_OPTIONS = [
     { sol: 0.5, lamports: 500_000_000, bugAmount: 5000 },
     { sol: 1, lamports: 1_000_000_000, bugAmount: 10000 },
@@ -119,7 +124,19 @@ function Marketplace({ playerProfile }: MarketplaceProps) {
     setTopupStatus('Processing...')
     
     try {
+      // 记录充值前的余额
+      const balanceBefore = await getPlayerBugBalance(playerProfile.wallet)
+      console.log('Balance before topup:', balanceBefore)
+      console.log('Topping up with lamports:', lamports)
+      
       await buyBugTokens(playerProfile.wallet, lamports)
+      
+      // 等待一下再检查余额
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const balanceAfter = await getPlayerBugBalance(playerProfile.wallet)
+      console.log('Balance after topup:', balanceAfter)
+      console.log('BUG received:', balanceAfter - balanceBefore)
+      
       setTopupStatus('Top-up successful!')
       await loadBugBalance()
       setTimeout(() => setTopupStatus(null), 2000)
